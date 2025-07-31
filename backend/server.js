@@ -12,6 +12,11 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
+app.get('/', (req, res) => 
+{
+  res.send('College Management System Backend is running');
+});
+
 // MySQL connection
 const db = mysql.createConnection({
   host: process.env.DB_HOST,
