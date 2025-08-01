@@ -19,10 +19,11 @@ app.get('/', (req, res) =>
 
 // MySQL connection
 const db = mysql.createConnection({
-  host: http://mysql.hostinger.com,
-  user: u547393534_Suraj,
-  password: Sur@j123college,
-  database: u547393534_Collee_system,
+  host: process.env.DB_HOST,
+  user: process.env.DB_USER,
+  password: process.env.DB_PASSWORD,
+  database: process.env.DB_NAME,
+  port: process.env.DB_PORT
 });
 
 db.connect((err) => {
