@@ -20,9 +20,9 @@ app.get('/', (req, res) =>
 // MySQL connection
 const db = mysql.createConnection({
   host: 'srv1948.hstgr.io',
-  user: 'u547393534_Collee_system',
+  user: 'u547393534_Suraj',
   password: 'Sur@j123college',
-  database: 'u547393534_Suraj',
+  database: 'u547393534_Collee_system',
   port: 3306
 });
 
