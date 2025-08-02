@@ -1,7 +1,8 @@
 import jsPDF from "jspdf";
 import html2canvas from "html2canvas";
 import * as XLSX from "xlsx";
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect ,useRef} from "react";
+import Swal from 'sweetalert2';
 import axios from "axios";
 import {
   BrowserRouter as Router,
@@ -122,7 +123,7 @@ const AdminPage = () => {
 
     if (isRegistering) {
       // Register admin
-      axios.post("http://localhost:3001/api/admin/register", { username, password })
+      axios.post("https://college-cms-backend-jrmg.onrender.com/api/admin/register", { username, password })
         .then(response => {
           localStorage.setItem("adminToken", response.data.token);
           navigate("/admin-dashboard");
@@ -132,7 +133,7 @@ const AdminPage = () => {
         });
     } else {
       // Login admin
-      axios.post("http://localhost:3001/api/admin/login", { username, password })
+      axios.post("https://college-cms-backend-jrmg.onrender.com/api/admin/login", { username, password })
         .then(response => {
           localStorage.setItem("adminToken", response.data.token);
           navigate("/admin-dashboard");
@@ -202,6 +203,135 @@ const AdminPage = () => {
   );
 };
 
+const ShowFilteredAttendance = () => {
+  const [schools, setSchools] = useState([]);
+  const [departments, setDepartments] = useState([]);
+  const [programs, setPrograms] = useState([]);
+  const [semesters, setSemesters] = useState([]);
+  const [attendanceData, setAttendanceData] = useState([]);
+  const [threshold, setThreshold] = useState("");
+
+  const [selectedSchool, setSelectedSchool] = useState("");
+  const [selectedDepartment, setSelectedDepartment] = useState("");
+  const [selectedProgram, setSelectedProgram] = useState("");
+  const [selectedSemester, setSelectedSemester] = useState("");
+
+  useEffect(() => {
+    axios.get("https://college-cms-backend-jrmg.onrender.com/api/schools").then((res) => setSchools(res.data));
+  }, []);
+
+  useEffect(() => {
+    if (selectedSchool)
+      axios.get(`https://college-cms-backend-jrmg.onrender.com/api/departments/${selectedSchool}`).then((res) => setDepartments(res.data));
+  }, [selectedSchool]);
+
+  useEffect(() => {
+    if (selectedDepartment)
+      axios.get(`https://college-cms-backend-jrmg.onrender.com/api/programs/${selectedDepartment}`).then((res) => setPrograms(res.data));
+  }, [selectedDepartment]);
+
+  useEffect(() => {
+    if (selectedProgram)
+      axios.get(`https://college-cms-backend-jrmg.onrender.com/api/semesters/${selectedProgram}`).then((res) => setSemesters(res.data));
+  }, [selectedProgram]);
+
+  const fetchFilteredAttendance = () => {
+    if (!selectedSchool || !selectedDepartment || !selectedProgram || !selectedSemester || !threshold) {
+      alert("Please fill all filters and percentage threshold");
+      return;
+    }
+
+    axios.get("https://college-cms-backend-jrmg.onrender.com/api/admin/filtered-attendance", {
+      params: {
+        schoolId: selectedSchool,
+        departmentId: selectedDepartment,
+        programId: selectedProgram,
+        semesterId: selectedSemester,
+        threshold: threshold
+      }
+    }).then((res) => setAttendanceData(res.data))
+      .catch((err) => console.error("Error fetching filtered attendance:", err));
+  };
+
+  return (
+    <div className="dashboard-container">
+      <DashboardSidebar activePage="showfilteredattendance" />
+      <div className="content-area">
+        <h1>Show Filtered Attendance</h1>
+        <div className="show-attendance-form">
+          <select value={selectedSchool} onChange={(e) => setSelectedSchool(e.target.value)}>
+            <option value="">Select School</option>
+            {schools.map((school) => <option key={school.id} value={school.id}>{school.name}</option>)}
+          </select>
+
+          <select value={selectedDepartment} onChange={(e) => setSelectedDepartment(e.target.value)}>
+            <option value="">Select Department</option>
+            {departments.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}
+          </select>
+
+          <select value={selectedProgram} onChange={(e) => setSelectedProgram(e.target.value)}>
+            <option value="">Select Program</option>
+            {programs.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+          </select>
+
+          <select value={selectedSemester} onChange={(e) => setSelectedSemester(e.target.value)}>
+            <option value="">Select Semester</option>
+            {semesters.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+          </select>
+
+          <input
+            type="number"
+            placeholder="Enter Threshold % (e.g., 60)"
+            value={threshold}
+            onChange={(e) => setThreshold(e.target.value)}
+          />
+
+          <button onClick={fetchFilteredAttendance}>Filter Attendance</button>
+        </div>
+
+        {attendanceData.length > 0 && (
+          <div className="attendance-data display-attendance-data">
+            <h2>Filtered Students (Below {threshold}%)</h2>
+            <table>
+              <thead>
+                <tr>
+                  <th>Name</th>
+                  <th>Reg No</th>
+                  <th>Subject</th>
+                  <th>Subject Attendance (%)</th>
+                  <th>Total Attendance (%)</th>
+                </tr>
+              </thead>
+              <tbody>
+                {attendanceData.map(student => (
+                  <React.Fragment key={student.registration_number}>
+                    {student.subjects.map((subject, idx) => (
+                      <tr key={`${student.registration_number}-${subject.subject_id}`}>
+                        {idx === 0 && (
+                          <>
+                            <td rowSpan={student.subjects.length}>{student.student_name}</td>
+                            <td rowSpan={student.subjects.length}>{student.registration_number}</td>
+                          </>
+                        )}
+                        <td>{subject.subject_name}</td>
+                        <td>{subject.attendance_percentage.toFixed(2)}%</td>
+                        {idx === 0 && (
+                          <td rowSpan={student.subjects.length}>{student.totalAttendancePercentage.toFixed(2)}%</td>
+                        )}
+                      </tr>
+                    ))}
+                  </React.Fragment>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+
+
 const StudentLoginPage = () => {
   const navigate = useNavigate();
   const [isRegistering, setIsRegistering] = useState(false);
@@ -222,7 +352,7 @@ const StudentLoginPage = () => {
     
     // Fetch programs for registration
     if (isRegistering) {
-      axios.get("http://localhost:3001/api/programs")
+      axios.get("https://college-cms-backend-jrmg.onrender.com/api/programs")
         .then(response => setPrograms(response.data))
         .catch(error => console.error("Error fetching programs:", error));
     }
@@ -231,7 +361,7 @@ const StudentLoginPage = () => {
   // Fetch semesters when program is selected
   useEffect(() => {
     if (programId) {
-      axios.get(`http://localhost:3001/api/semesters/${programId}`)
+      axios.get(`https://college-cms-backend-jrmg.onrender.com/api/semesters/${programId}`)
         .then(response => setSemesters(response.data))
         .catch(error => console.error("Error fetching semesters:", error));
     }
@@ -247,7 +377,7 @@ const StudentLoginPage = () => {
         return;
       }
       
-      axios.post("http://localhost:3001/api/student/register", { 
+      axios.post("https://college-cms-backend-jrmg.onrender.com/api/student/register", { 
         registrationNumber, 
         password,
         name,
@@ -269,7 +399,7 @@ const StudentLoginPage = () => {
         return;
       }
       
-      axios.post("http://localhost:3001/api/student/login", { registrationNumber, password })
+      axios.post("https://college-cms-backend-jrmg.onrender.com/api/student/login", { registrationNumber, password })
         .then(response => {
           localStorage.setItem("studentToken", response.data.token);
           localStorage.setItem("studentId", response.data.studentId);
@@ -386,26 +516,61 @@ const AdminDashboard = () => {
   const [selectedProgram, setSelectedProgram] = useState("1");
   const [selectedSemester, setSelectedSemester] = useState("1");
 
+  const [fromDate, setFromDate] = useState("");
+  const [toDate, setToDate] = useState("");
+  const [averageAttendanceData, setAverageAttendanceData] = useState([]);
+
+  const fetchAverageAttendance = () => {
+    if (!fromDate || !toDate) return;
+
+    axios.get("https://college-cms-backend-jrmg.onrender.com/api/attendance/average-attendance", {
+      params: {
+        school_id: selectedSchool,
+        department_id: selectedDepartment,
+        program_id: selectedProgram,
+        semester_id: selectedSemester,
+        from_date: fromDate,
+        to_date: toDate
+      }
+    }).then((res) => {
+      setAverageAttendanceData(res.data);
+    }).catch((err) => {
+      console.error("Error fetching average attendance", err);
+    });
+  };
+
   useEffect(() => {
     const adminToken = localStorage.getItem("adminToken");
     if (!adminToken) {
       navigate("/admin");
     }
 
-    axios.get("http://localhost:3001/api/schools").then(res => setSchools(res.data));
-    axios.get(`http://localhost:3001/api/departments/1`).then(res => setDepartments(res.data));
-    axios.get(`http://localhost:3001/api/programs/1`).then(res => setPrograms(res.data));
-    axios.get(`http://localhost:3001/api/semesters/1`).then(res => setSemesters(res.data));
-
+    axios.get("https://college-cms-backend-jrmg.onrender.com/api/schools").then(res => setSchools(res.data));
+    axios.get(`https://college-cms-backend-jrmg.onrender.com/api/departments/1`).then(res => setDepartments(res.data));
+    axios.get(`https://college-cms-backend-jrmg.onrender.com/api/programs/1`).then(res => setPrograms(res.data));
+    axios.get(`https://college-cms-backend-jrmg.onrender.com/api/semesters/1`).then(res => setSemesters(res.data));
     fetchSubjects("1");
+
+    const today = new Date();
+    const oneMonthAgo = new Date();
+    oneMonthAgo.setMonth(today.getMonth() - 1);
+    const formatDate = (date) => date.toISOString().split('T')[0];
+    setFromDate(formatDate(oneMonthAgo));
+    setToDate(formatDate(today));
   }, [navigate]);
 
+  useEffect(() => {
+    if (selectedSchool && selectedDepartment && selectedProgram && selectedSemester && fromDate && toDate) {
+      fetchAverageAttendance();
+    }
+  }, [selectedSchool, selectedDepartment, selectedProgram, selectedSemester, fromDate, toDate]);
+
   const fetchSubjects = (semesterId) => {
-    axios.get(`http://localhost:3001/api/subjects/${semesterId}`)
+    axios.get(`https://college-cms-backend-jrmg.onrender.com/api/subjects/${semesterId}`)
       .then(async res => {
         const subjects = res.data;
         const updatedSubjects = await Promise.all(subjects.map(async (subject) => {
-          const response = await axios.get(`http://localhost:3001/api/attendance/unique-dates/${subject.id}`);
+          const response = await axios.get(`https://college-cms-backend-jrmg.onrender.com/api/attendance/unique-dates/${subject.id}`);
           return {
             ...subject,
             classesHeld: response.data.unique_dates_count || 0,
@@ -427,9 +592,9 @@ const AdminDashboard = () => {
   return (
     <div className="dashboard-container">
       <DashboardSidebar activePage="dashboard" />
-      <div className="content-area student-dashboard-page">
+      <div className="content-area admin-dashboard-fill student-dashboard-page">
         <h1>Admin Dashboard - Class Summary</h1>
-        <ChatBot/>
+        <ChatBot />
         <div className="filters">
           <select value={selectedSchool} onChange={(e) => setSelectedSchool(e.target.value)}>
             {schools.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
@@ -449,6 +614,8 @@ const AdminDashboard = () => {
           >
             {semesters.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
           </select>
+          <input type="date" value={fromDate} onChange={(e) => setFromDate(e.target.value)} />
+          <input type="date" value={toDate} onChange={(e) => setToDate(e.target.value)} />
         </div>
 
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '20px', marginTop: '20px' }}>
@@ -464,14 +631,35 @@ const AdminDashboard = () => {
             ))
           )}
         </div>
+
+        <h2>Average Attendance Per Subject</h2>
+        {averageAttendanceData.length > 0 ? (
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '20px' }}>
+            {averageAttendanceData.map((item, index) => (
+              <div key={index} style={{ width: '250px', textAlign: 'center' }}>
+                <h4>{item.subject}</h4>
+                <Pie data={{
+                  labels: ['Average Present', 'Absent'],
+                  datasets: [{
+                    data: [item.average_attendance, 100 - item.average_attendance],
+                    backgroundColor: ['#4CAF50', '#FF5722']
+                  }]
+                }} />
+                <p>{item.average_attendance.toFixed(2)}% average attendance</p>
+              </div>
+            ))}
+          </div>
+        ) : <p>No average attendance data available.</p>}
       </div>
     </div>
   );
 };
 
+
 const StudentDashboard = () => {
   const navigate = useNavigate();
   const [attendanceData, setAttendanceData] = useState([]);
+  const [totalPercentage, setTotalPercentage] = useState(null);
 
   useEffect(() => {
     const studentToken = localStorage.getItem("studentToken");
@@ -480,9 +668,10 @@ const StudentDashboard = () => {
     }
 
     const studentId = localStorage.getItem("studentId");
-    axios.get(`http://localhost:3001/api/student/attendance/${studentId}`)
+    axios.get(`https://college-cms-backend-jrmg.onrender.com/api/student/attendance/${studentId}`)
       .then(response => {
         setAttendanceData(response.data.subjects);
+        setTotalPercentage(response.data.totalAttendancePercentage); // <- new line
       })
       .catch(error => {
         console.error("Error fetching attendance:", error);
@@ -520,6 +709,15 @@ const StudentDashboard = () => {
             ))
           )}
         </div>
+
+        {totalPercentage !== null && (
+          <div style={{ marginTop: '40px', textAlign: 'center' }}>
+            <h2>Overall Attendance</h2>
+            <p style={{ fontSize: '20px', fontWeight: 'bold' }}>
+              {totalPercentage.toFixed(2)}% Total Attendance
+            </p>
+          </div>
+        )}
       </div>
     </div>
   );
@@ -550,7 +748,7 @@ const TeacherLoginPage = () => {
         return;
       }
       
-      axios.post("http://localhost:3001/api/teacher/register", { 
+      axios.post("https://college-cms-backend-jrmg.onrender.com/api/teacher/register", { 
         teacherId, 
         password,
         name
@@ -570,7 +768,7 @@ const TeacherLoginPage = () => {
         return;
       }
       
-      axios.post("http://localhost:3001/api/teacher/login", { teacherId, password })
+      axios.post("https://college-cms-backend-jrmg.onrender.com/api/teacher/login", { teacherId, password })
         .then(response => {
           localStorage.setItem("teacherToken", response.data.token);
           localStorage.setItem("teacherId", response.data.teacherId);
@@ -654,27 +852,110 @@ const TeacherLoginPage = () => {
 
 const TeacherDashboard = () => {
   const navigate = useNavigate();
-  
+  const [oddTimetable, setOddTimetable] = useState({});
+  const [evenTimetable, setEvenTimetable] = useState({});
+  const oddTableRef = useRef(null);
+  const evenTableRef = useRef(null);
+
   useEffect(() => {
     const teacherToken = localStorage.getItem("teacherToken");
-    if (!teacherToken) {
+    const teacherId = localStorage.getItem("teacherId");
+    if (!teacherToken || !teacherId) {
       navigate("/teacher-login");
+      return;
     }
+
+    axios.get(`https://college-cms-backend-jrmg.onrender.com/api/teacher/timetable/${teacherId}`)
+      .then(response => {
+        setOddTimetable(response.data.odd || {});
+        setEvenTimetable(response.data.even || {});
+      })
+      .catch(error => {
+        console.error("Error fetching timetable:", error);
+      });
   }, [navigate]);
-  
+
+  const downloadAsExcel = (ref, filename) => {
+    const table = ref.current;
+    const worksheet = XLSX.utils.table_to_sheet(table.querySelector("table"));
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Timetable");
+    XLSX.writeFile(workbook, filename);
+  };
+
+  const downloadAsPDF = (ref, filename) => {
+    html2canvas(ref.current).then(canvas => {
+      const imgData = canvas.toDataURL("image/png");
+      const pdf = new jsPDF('landscape');
+      const imgProps = pdf.getImageProperties(imgData);
+      const pdfWidth = pdf.internal.pageSize.getWidth();
+      const pdfHeight = (imgProps.height * pdfWidth) / imgProps.width;
+      pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
+      pdf.save(filename);
+    });
+  };
+
+  const downloadAsImage = (ref, filename) => {
+    html2canvas(ref.current).then(canvas => {
+      const link = document.createElement("a");
+      link.download = filename;
+      link.href = canvas.toDataURL("image/png");
+      link.click();
+    });
+  };
+
+  const renderTimetableTable = (tableData, label, ref) => {
+    const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
+    const timeSlots = ['8:45-9:45', '9:45-10:45', '10:45-11:45', '11:45-12:45', '12:45-1:45', '1:45-2:45', '2:45-3:45'];
+
+    return (
+      <div style={{ marginBottom: "40px" }}>
+        <h2>{label}</h2>
+        <div ref={ref}>
+          <table border="1" className="styled-table" style={{ width: "100%", borderCollapse: "collapse" }}>
+            <thead>
+              <tr>
+                <th>Day</th>
+                {timeSlots.map(slot => <th key={slot}>{slot}</th>)}
+              </tr>
+            </thead>
+            <tbody>
+              {days.map(day => (
+                <tr key={day}>
+                  <td>{day}</td>
+                  {timeSlots.map(slot => (
+                    <td key={slot}>{tableData[day]?.[slot] || ''}</td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        <div style={{ marginTop: "10px" }}>
+          <button className="teach-button" onClick={() => downloadAsExcel(ref, `${label}.xlsx`)}>Download as Excel</button>
+          <button className="teach-button" onClick={() => downloadAsPDF(ref, `${label}.pdf`)}>Download as PDF</button>
+          <button className="teach-button" onClick={() => downloadAsImage(ref, `${label}.png`)}>Download as Image</button>
+        </div>
+      </div>
+    );
+  };
+
   return (
     <div className="dashboard-container">
       <DashboardSidebar activePage="dashboard" />
-      <div className="content-area">
+      <div className="content-area teacher-dashboard-page">
         <h1>Welcome to Teacher Dashboard</h1>
-        <p>Use the sidebar to navigate to different sections.</p>
+        <p>Your Teaching Timetable</p>
+        {renderTimetableTable(oddTimetable, "Odd Semester Timetable", oddTableRef)}
+        {renderTimetableTable(evenTimetable, "Even Semester Timetable", evenTableRef)}
       </div>
     </div>
   );
 };
 
+
 const DisplayAssignmentsPage = () => {
-  const [session, setSession] = useState("");
+  const [session,setSession] = useState("");
   const [school, setSchool] = useState("");
   const [department, setDepartment] = useState("");
   const [program, setProgram] = useState("");
@@ -693,7 +974,7 @@ const DisplayAssignmentsPage = () => {
   // Fetch schools
   useEffect(() => {
     axios
-      .get("http://localhost:3001/api/schools")
+      .get("https://college-cms-backend-jrmg.onrender.com/api/schools")
       .then((response) => setSchools(response.data))
       .catch((error) => console.error("Error fetching schools:", error));
   }, []);
@@ -702,7 +983,7 @@ const DisplayAssignmentsPage = () => {
   useEffect(() => {
     if (school) {
       axios
-        .get(`http://localhost:3001/api/departments/${school}`)
+        .get(`https://college-cms-backend-jrmg.onrender.com/api/departments/${school}`)
         .then((response) => setDepartments(response.data))
         .catch((error) => console.error("Error fetching departments:", error));
     }
@@ -712,7 +993,7 @@ const DisplayAssignmentsPage = () => {
   useEffect(() => {
     if (department) {
       axios
-        .get(`http://localhost:3001/api/programs/${department}`)
+        .get(`https://college-cms-backend-jrmg.onrender.com/api/programs/${department}`)
         .then((response) => setPrograms(response.data))
         .catch((error) => console.error("Error fetching programs:", error));
     }
@@ -723,7 +1004,7 @@ const DisplayAssignmentsPage = () => {
     if (program) {
       axios
         .get(
-          `http://localhost:3001/api/semesters/${program}?session=${session}`
+          `https://college-cms-backend-jrmg.onrender.com/api/semesters/${program}?session=${session}`
         )
         .then((response) => setSemesters(response.data))
         .catch((error) => console.error("Error fetching semesters:", error));
@@ -734,7 +1015,7 @@ const DisplayAssignmentsPage = () => {
   useEffect(() => {
     if (semester) {
       axios
-        .get(`http://localhost:3001/api/subjects/${semester}`)
+        .get(`https://college-cms-backend-jrmg.onrender.com/api/subjects/${semester}`)
         .then((response) => setSubjects(response.data))
         .catch((error) => console.error("Error fetching subjects:", error));
     }
@@ -744,7 +1025,7 @@ const DisplayAssignmentsPage = () => {
   useEffect(() => {
     if (subject) {
       axios
-        .get(`http://localhost:3001/api/assignments/${subject}`)
+        .get(`https://college-cms-backend-jrmg.onrender.com/api/assignments/${subject}`)
         .then((response) => setAssignments(response.data))
         .catch((error) => console.error("Error fetching assignments:", error));
     }
@@ -755,7 +1036,7 @@ const DisplayAssignmentsPage = () => {
     if (selectedAssignment) {
       axios
         .get(
-          `http://localhost:3001/api/assignment-submissions/${selectedAssignment}`
+          `https://college-cms-backend-jrmg.onrender.com/api/assignment-submissions/${selectedAssignment}`
         )
         .then((response) => setSubmissions(response.data))
         .catch((error) => console.error("Error fetching submissions:", error));
@@ -771,11 +1052,6 @@ const DisplayAssignmentsPage = () => {
       <h1>Display Assignment Submissions</h1>
 
       <div className="display-assignments-form">
-        {/* <select value={session} onChange={(e) => setSession(e.target.value)}>
-          <option value="">Select Session</option>
-          <option value="Aug-Dec">Aug-Dec</option>
-          <option value="Jan-Jul">Jan-Jul</option>
-        </select> */}
 
         <select value={school} onChange={(e) => setSchool(e.target.value)}>
           <option value="">Select School</option>
@@ -860,7 +1136,7 @@ const DisplayAssignmentsPage = () => {
                     </td>
                     <td>
                       <a
-                        href={`http://localhost:3001/uploads/${submission.file_path}`}
+                        href={`https://college-cms-backend-jrmg.onrender.com/uploads/${submission.file_path}`}
                         target="_blank"
                         rel="noreferrer"
                       >
@@ -888,7 +1164,7 @@ const DisplayAssignmentsPage = () => {
 };
 
 const AddStudentPage = () => {
-  const [session, setSession] = useState("");
+  const [session,setSession] = useState("");
   const [school, setSchool] = useState("");
   const [department, setDepartment] = useState("");
   const [program, setProgram] = useState("");
@@ -904,7 +1180,7 @@ const AddStudentPage = () => {
   // Fetch schools
   useEffect(() => {
     axios
-      .get("http://localhost:3001/api/schools")
+      .get("https://college-cms-backend-jrmg.onrender.com/api/schools")
       .then((response) => setSchools(response.data))
       .catch((error) => console.error("Error fetching schools:", error));
   }, []);
@@ -913,7 +1189,7 @@ const AddStudentPage = () => {
   useEffect(() => {
     if (school) {
       axios
-        .get(`http://localhost:3001/api/departments/${school}`)
+        .get(`https://college-cms-backend-jrmg.onrender.com/api/departments/${school}`)
         .then((response) => setDepartments(response.data))
         .catch((error) => console.error("Error fetching departments:", error));
     }
@@ -923,7 +1199,7 @@ const AddStudentPage = () => {
   useEffect(() => {
     if (department) {
       axios
-        .get(`http://localhost:3001/api/programs/${department}`)
+        .get(`https://college-cms-backend-jrmg.onrender.com/api/programs/${department}`)
         .then((response) => setPrograms(response.data))
         .catch((error) => console.error("Error fetching programs:", error));
     }
@@ -934,7 +1210,7 @@ const AddStudentPage = () => {
     if (program) {
       axios
         .get(
-          `http://localhost:3001/api/semesters/${program}?session=${session}`
+          `https://college-cms-backend-jrmg.onrender.com/api/semesters/${program}?session=${session}`
         )
         .then((response) => setSemesters(response.data))
         .catch((error) => console.error("Error fetching semesters:", error));
@@ -955,7 +1231,7 @@ const AddStudentPage = () => {
     };
 
     axios
-      .post("http://localhost:3001/api/students", studentData)
+      .post("https://college-cms-backend-jrmg.onrender.com/api/students", studentData)
       .then((response) => {
         alert("Student added successfully!");
         // Reset form
@@ -976,11 +1252,6 @@ const AddStudentPage = () => {
       <h1>Add New Student</h1>
 
       <div className="add-student-form">
-        {/* <select value={session} onChange={(e) => setSession(e.target.value)}>
-          <option value="">Select Session</option>
-          <option value="Aug-Dec">Aug-Dec</option>
-          <option value="Jan-Jul">Jan-Jul</option>
-        </select> */}
 
         <select value={school} onChange={(e) => setSchool(e.target.value)}>
           <option value="">Select School</option>
@@ -1058,7 +1329,7 @@ const ShowStudentAttendance = () => {
   const studentId = localStorage.getItem("studentId");
 
   useEffect(() => {
-      axios.get(`http://localhost:3001/api/student/attendance/${studentId}`)
+      axios.get(`https://college-cms-backend-jrmg.onrender.com/api/student/attendance/${studentId}`)
           .then(response => {
               setAttendanceData(response.data.subjects);
               setTotalAttendance(response.data.totalAttendancePercentage);
@@ -1106,28 +1377,29 @@ const ShowAdminAttendance = () => {
   const [selectedDepartment, setSelectedDepartment] = useState("");
   const [selectedProgram, setSelectedProgram] = useState("");
   const [selectedSemester, setSelectedSemester] = useState("");
+  const [threshold, setThreshold] = useState("");
 
   useEffect(() => {
-    axios.get("http://localhost:3001/api/schools").then((res) => setSchools(res.data));
+    axios.get("https://college-cms-backend-jrmg.onrender.com/api/schools").then((res) => setSchools(res.data));
   }, []);
 
   useEffect(() => {
     if (selectedSchool) {
-      axios.get(`http://localhost:3001/api/departments/${selectedSchool}`)
+      axios.get(`https://college-cms-backend-jrmg.onrender.com/api/departments/${selectedSchool}`)
         .then((res) => setDepartments(res.data));
     }
   }, [selectedSchool]);
 
   useEffect(() => {
     if (selectedDepartment) {
-      axios.get(`http://localhost:3001/api/programs/${selectedDepartment}`)
+      axios.get(`https://college-cms-backend-jrmg.onrender.com/api/programs/${selectedDepartment}`)
         .then((res) => setPrograms(res.data));
     }
   }, [selectedDepartment]);
 
   useEffect(() => {
     if (selectedProgram) {
-      axios.get(`http://localhost:3001/api/semesters/${selectedProgram}`)
+      axios.get(`https://college-cms-backend-jrmg.onrender.com/api/semesters/${selectedProgram}`)
         .then((res) => setSemesters(res.data));
     }
   }, [selectedProgram]);
@@ -1138,110 +1410,160 @@ const ShowAdminAttendance = () => {
       return;
     }
 
-    axios.get("http://localhost:3001/api/admin/attendance", {
+    axios.get("https://college-cms-backend-jrmg.onrender.com/api/admin/attendance", {
       params: {
         schoolId: selectedSchool,
         departmentId: selectedDepartment,
         programId: selectedProgram,
-        semesterId: selectedSemester
+        semesterId: selectedSemester,
+        threshold: threshold || undefined
       }
     }).then((res) => setAttendanceData(res.data))
       .catch((err) => console.error("Error fetching attendance:", err));
+  };
+
+  const downloadExcel = () => {
+    if (attendanceData.length === 0) {
+      alert("No data to export");
+      return;
+    }
+
+    const rows = [];
+
+    attendanceData.forEach((student) => {
+      const totalSubjects = student.subjects.length;
+      const avgPercentage = student.subjects.reduce(
+        (sum, subj) => sum + parseFloat(subj.attendance_percentage),
+        0
+      ) / totalSubjects;
+
+      student.subjects.forEach((subj, idx) => {
+        rows.push({
+          "Student Name": idx === 0 ? student.student_name : "",
+          "Registration No": idx === 0 ? student.registration_number : "",
+          "Subject": subj.subject_name,
+          "Total Classes": subj.total_classes,
+          "Classes Attended": subj.classes_attended,
+          "Attendance (%)": subj.attendance_percentage,
+          "Total (%)": idx === 0 ? avgPercentage.toFixed(2) : ""
+        });
+      });
+    });
+
+    const worksheet = XLSX.utils.json_to_sheet(rows);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Attendance");
+    XLSX.writeFile(workbook, "AttendanceData.xlsx");
   };
 
   return (
     <div className="dashboard-container">
       <DashboardSidebar activePage="showattendance" />
       <div className="content-area">
-    <div className="show-attendance-container">
-      <h1>Filter Attendance</h1>
-      <div className="show-attendance-form">
-        <br />
-        <select value={selectedSchool} onChange={(e) => setSelectedSchool(e.target.value)}>
-          <option value="">Select School</option>
-          {schools.map((school) => (
-            <option key={school.id} value={school.id}>{school.name}</option>
-          ))}
-        </select>
-
-        {/* <label>Department:</label> */}
-        <br />
-        <select value={selectedDepartment} onChange={(e) => setSelectedDepartment(e.target.value)}>
-          <option value="">Select Department</option>
-          {departments.map((department) => (
-            <option key={department.id} value={department.id}>{department.name}</option>
-          ))}
-        </select>
-
-        {/* <label>Program:</label> */}
-        <br />
-        <select value={selectedProgram} onChange={(e) => setSelectedProgram(e.target.value)}>
-          <option value="">Select Program</option>
-          {programs.map((program) => (
-            <option key={program.id} value={program.id}>{program.name}</option>
-          ))}
-        </select>
-
-        {/* <label>Semester:</label> */}
-        <br />
-        <select value={selectedSemester} onChange={(e) => setSelectedSemester(e.target.value)}>
-          <option value="">Select Semester</option>
-          {semesters.map((semester) => (
-            <option key={semester.id} value={semester.id}>{semester.name}</option>
-          ))}
-        </select>
-
-        <button className="attendance-next" onClick={fetchAttendance}>Show Attendance</button>
-      </div>
-
-      {attendanceData.length > 0 && (
-        <div className="attendance-data">
-          <h2>Attendance Data</h2>
-          <table>
-            <thead>
-              <tr>
-                <th>Student Name</th>
-                <th>Registration No</th>
-                <th>Subject</th>
-                <th>Attendance (%)</th>
-                <th>Total (%)</th>
-              </tr>
-            </thead>
-            <tbody>
-              {attendanceData.map(student => (
-                <React.Fragment key={student.registration_number}>
-                  {student.subjects.map((subject, index) => (
-                    <tr key={`${student.registration_number}-${subject.subject_id}`}>
-                      {index === 0 && (
-                        <>
-                          <td rowSpan={student.subjects.length}>{student.student_name}</td>
-                          <td rowSpan={student.subjects.length}>{student.registration_number}</td>
-                        </>
-                      )}
-                      <td>{subject.subject_name}</td>
-                      <td>{subject.attendance_percentage.toFixed(2)}%</td>
-                      {index === 0 && (
-                        <td rowSpan={student.subjects.length}>
-                          {student.totalAttendancePercentage.toFixed(2)}%
-                        </td>
-                      )}
-                    </tr>
-                  ))}
-                </React.Fragment>
+        <div className="show-attendance-container">
+          <h1>Filter Attendance</h1>
+          <div className="show-attendance-form">
+            <br />
+            <select value={selectedSchool} onChange={(e) => setSelectedSchool(e.target.value)}>
+              <option value="">Select School</option>
+              {schools.map((school) => (
+                <option key={school.id} value={school.id}>{school.name}</option>
               ))}
-            </tbody>
-          </table>
+            </select>
+
+            <br />
+            <select value={selectedDepartment} onChange={(e) => setSelectedDepartment(e.target.value)}>
+              <option value="">Select Department</option>
+              {departments.map((department) => (
+                <option key={department.id} value={department.id}>{department.name}</option>
+              ))}
+            </select>
+
+            <br />
+            <select value={selectedProgram} onChange={(e) => setSelectedProgram(e.target.value)}>
+              <option value="">Select Program</option>
+              {programs.map((program) => (
+                <option key={program.id} value={program.id}>{program.name}</option>
+              ))}
+            </select>
+
+            <br />
+            <select value={selectedSemester} onChange={(e) => setSelectedSemester(e.target.value)}>
+              <option value="">Select Semester</option>
+              {semesters.map((semester) => (
+                <option key={semester.id} value={semester.id}>{semester.name}</option>
+              ))}
+            </select>
+
+            <br />
+            <input
+              type="number"
+              placeholder="Enter attendance % threshold (optional)"
+              value={threshold}
+              onChange={(e) => setThreshold(e.target.value)}
+            />
+
+            <br />
+            <button className="attendance-next" onClick={fetchAttendance}>Show Attendance</button>
+          </div>
+
+          {attendanceData.length > 0 && (
+            <div className="attendance-data display-attendance-data">
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <h2>Attendance Data</h2>
+                <button onClick={downloadExcel}>Download as Excel</button>
+              </div>
+              <table>
+                <thead>
+                  <tr>
+                    <th>Student Name</th>
+                    <th>Registration No</th>
+                    <th>Subject</th>
+                    <th>Total Classes</th>
+                    <th>Classes Attended</th>
+                    <th>Attendance (%)</th>
+                    <th>Total (%)</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {attendanceData.map((student, index) => {
+                    const totalSubjects = student.subjects.length;
+                    const totalPercentage = student.subjects.reduce(
+                      (sum, subj) => sum + parseFloat(subj.attendance_percentage),
+                      0
+                    ) / totalSubjects;
+
+                    return student.subjects.map((subject, subjIndex) => (
+                      <tr key={`${student.registration_number}-${subject.subject_id}`}>
+                        {subjIndex === 0 && (
+                          <>
+                            <td rowSpan={totalSubjects}>{student.student_name}</td>
+                            <td rowSpan={totalSubjects}>{student.registration_number}</td>
+                          </>
+                        )}
+                        <td>{subject.subject_name}</td>
+                        <td>{subject.total_classes}</td>
+                        <td>{subject.classes_attended}</td>
+                        <td>{subject.attendance_percentage}%</td>
+                        {subjIndex === 0 && (
+                          <td rowSpan={totalSubjects}>{totalPercentage.toFixed(2)}%</td>
+                        )}
+                      </tr>
+                    ));
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
-      )}
-    </div>
-    </div>
+      </div>
     </div>
   );
 };
 
 
 const ShowAttendancePage = () => {
-  const [session, setSession] = useState("");
+  const [session,setSession] = useState("");
   const [school, setSchool] = useState("");
   const [department, setDepartment] = useState("");
   const [program, setProgram] = useState("");
@@ -1259,7 +1581,7 @@ const ShowAttendancePage = () => {
   // Fetch schools
   useEffect(() => {
     axios
-      .get("http://localhost:3001/api/schools")
+      .get("https://college-cms-backend-jrmg.onrender.com/api/schools")
       .then((response) => setSchools(response.data))
       .catch((error) => console.error("Error fetching schools:", error));
   }, []);
@@ -1268,7 +1590,7 @@ const ShowAttendancePage = () => {
   useEffect(() => {
     if (school) {
       axios
-        .get(`http://localhost:3001/api/departments/${school}`)
+        .get(`https://college-cms-backend-jrmg.onrender.com/api/departments/${school}`)
         .then((response) => setDepartments(response.data))
         .catch((error) => console.error("Error fetching departments:", error));
     }
@@ -1278,7 +1600,7 @@ const ShowAttendancePage = () => {
   useEffect(() => {
     if (department) {
       axios
-        .get(`http://localhost:3001/api/programs/${department}`)
+        .get(`https://college-cms-backend-jrmg.onrender.com/api/programs/${department}`)
         .then((response) => setPrograms(response.data))
         .catch((error) => console.error("Error fetching programs:", error));
     }
@@ -1289,7 +1611,7 @@ const ShowAttendancePage = () => {
     if (program) {
       axios
         .get(
-          `http://localhost:3001/api/semesters/${program}?session=${session}`
+          `https://college-cms-backend-jrmg.onrender.com/api/semesters/${program}?session=${session}`
         )
         .then((response) => setSemesters(response.data))
         .catch((error) => console.error("Error fetching semesters:", error));
@@ -1300,7 +1622,7 @@ const ShowAttendancePage = () => {
   useEffect(() => {
     if (semester) {
       axios
-        .get(`http://localhost:3001/api/subjects/${semester}`)
+        .get(`https://college-cms-backend-jrmg.onrender.com/api/subjects/${semester}`)
         .then((response) => setSubjects(response.data))
         .catch((error) => console.error("Error fetching subjects:", error));
     }
@@ -1313,7 +1635,7 @@ const ShowAttendancePage = () => {
     }
 
     axios
-      .get(`http://localhost:3001/api/attendance/${subject}/${date}`)
+      .get(`https://college-cms-backend-jrmg.onrender.com/api/attendance/${subject}/${date}`)
       .then((response) => {
         setAttendanceRecords(response.data);
       })
@@ -1331,11 +1653,6 @@ const ShowAttendancePage = () => {
       <h1>View Attendance Records</h1>
 
       <div className="show-attendance-form">
-        {/* <select value={session} onChange={(e) => setSession(e.target.value)}>
-          <option value="">Select Session</option>
-          <option value="Aug-Dec">Aug-Dec</option>
-          <option value="Jan-Jul">Jan-Jul</option>
-        </select> */}
 
         <select value={school} onChange={(e) => setSchool(e.target.value)}>
           <option value="">Select School</option>
@@ -1432,8 +1749,242 @@ const ShowAttendancePage = () => {
   );
 };
 
+
+// At the top of App.js
+const timeSlots = ['8:45-9:45', '9:45-10:45', '10:45-11:45', '11:45-12:45', '12:45-1:45', '1:45-2:45', '2:45-3:45'];
+
+// Add this somewhere in App.js (outside the main App component)
+const GeneratedTimetables = () => {
+  const [timetables, setTimetables] = useState([]);
+
+  useEffect(() => {
+    fetch('https://college-cms-backend-jrmg.onrender.com/api/generated-timetables')
+      .then(res => res.json())
+      .then(data => setTimetables(data))
+      .catch(err => console.error(err));
+  }, []);
+
+  const handleDelete = (id) => {
+    if (window.confirm("Are you sure you want to delete this timetable?")) {
+      fetch(`https://college-cms-backend-jrmg.onrender.com/api/timetable/${id}`, {
+        method: 'DELETE'
+      })
+        .then(res => res.json())
+        .then(() => {
+          setTimetables(prev => prev.filter(tt => tt.timetable_id !== id));
+        })
+        .catch(err => console.error(err));
+    }
+  };
+
+  return (
+    <div className="dashboard-container">
+      <DashboardSidebar activePage="generated-timetables" />
+      
+      <div className="content-area">
+    <div className="generated-timetables">
+      <h1>Generated Timetables</h1>
+      {timetables.map(timetable => (
+        <div key={timetable.timetable_id} className="timetable-grid">
+          <h2>{timetable.program} - {timetable.semester} ({timetable.session})
+            <button onClick={() => handleDelete(timetable.timetable_id)} style={{ marginLeft: '10px', color: 'red' }}>
+              🗑 Delete
+            </button>
+          </h2>
+          <table className="styled-table">
+            <thead>
+              <tr>
+                <th>Day/Time</th>
+                {timeSlots.map(slot => (
+                  <th key={slot}>{slot}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {days.map(day => (
+                <tr key={day}>
+                  <td><strong>{day}</strong></td>
+                  {timeSlots.map(slot => {
+                    const entry = timetable.entries.find(e => e.day === day && e.time_slot === slot);
+                    return (
+                      <td key={slot} className="entry-cell">
+                        {entry ? (
+                          <>
+                            <div className="table-subject">{entry.subject}</div>
+                            <div className="table-teacher">{entry.teacher}</div>
+                          </>
+                        ) : (
+                          <div className="table-empty-slot">—</div>
+                        )}
+                      </td>
+                    );
+                  })}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      ))}
+    </div>
+    </div>
+    </div>
+  );
+};
+
+const LibrarySearchPage = () => {
+  const [query, setQuery] = useState('');
+  const [books, setBooks] = useState([]);
+
+  useEffect(() => {
+    axios.get(`https://college-cms-backend-jrmg.onrender.com/api/library/books?q=${query}`)
+      .then(res => setBooks(res.data))
+      .catch(err => console.error("Error fetching books:", err));
+  }, [query]);
+
+  return (
+    <div className="dashboard-container">
+      <DashboardSidebar activePage="library-search-page" />
+      
+      <div className="content-area">
+    <div className="library-seaching-page">
+      <h2>Library Book Search</h2>
+      <input
+        type="text"
+        placeholder="Search by title, author, serial no, publisher"
+        value={query}
+        onChange={(e) => setQuery(e.target.value)}
+      />
+      <table className="styled-table">
+        <thead>
+          <tr><th>Serial</th><th>Title</th><th>Author</th><th>Publisher</th></tr>
+        </thead>
+        <tbody>
+          {books.map(book => (
+            <tr key={book.id}>
+              <td>{book.serial_number}</td>
+              <td>{book.title}</td>
+              <td>{book.author}</td>
+              <td>{book.publisher}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+    </div>
+    </div>
+  );
+};
+
+
+const SyllabusViewer = () => {
+  const [schools, setSchools] = useState([]);
+  const [departments, setDepartments] = useState([]);
+  const [programs, setPrograms] = useState([]);
+  const [semesters, setSemesters] = useState([]);
+
+  const [schoolId, setSchoolId] = useState('');
+  const [departmentId, setDepartmentId] = useState('');
+  const [programId, setProgramId] = useState('');
+  const [semesterId, setSemesterId] = useState('');
+  const [syllabusLink, setSyllabusLink] = useState('');
+
+  useEffect(() => {
+    axios.get('https://college-cms-backend-jrmg.onrender.com/api/schools')
+      .then(res => setSchools(res.data))
+      .catch(err => console.error("Error fetching schools", err));
+  }, []);
+
+  useEffect(() => {
+    if (schoolId) {
+      axios.get(`https://college-cms-backend-jrmg.onrender.com/api/departments/${schoolId}`)
+        .then(res => setDepartments(res.data));
+    }
+  }, [schoolId]);
+
+  useEffect(() => {
+    if (departmentId) {
+      axios.get(`https://college-cms-backend-jrmg.onrender.com/api/programs/${departmentId}`)
+        .then(res => setPrograms(res.data));
+    }
+  }, [departmentId]);
+
+  useEffect(() => {
+    if (programId) {
+      axios.get(`https://college-cms-backend-jrmg.onrender.com/api/semesters/${programId}`)
+        .then(res => setSemesters(res.data));
+    }
+  }, [programId]);
+
+  const fetchSyllabus = () => {
+    axios.get(`https://college-cms-backend-jrmg.onrender.com/api/syllabus`, {
+      params: { schoolId, departmentId, programId, semesterId }
+    })
+      .then(res => {
+        const content = res.data.content;
+        if (content) {
+          setSyllabusLink(`https://college-cms-backend-jrmg.onrender.com/${content}`);
+        } else {
+          setSyllabusLink('');
+        }
+      })
+      .catch(err => {
+        console.error("Error fetching syllabus:", err);
+        setSyllabusLink('');
+      });
+  };
+
+  return (
+    <div className="dashboard-container">
+      <DashboardSidebar activePage="syllabus-viewer" />
+      <div className="content-area total-classes-page">
+          <h2>View Syllabus</h2>
+        <div className="total-classes-form ">
+          <select value={schoolId} onChange={e => setSchoolId(e.target.value)}>
+            <option value="">Select School</option>
+            {schools.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+          </select>
+
+          <select value={departmentId} onChange={e => setDepartmentId(e.target.value)}>
+            <option value="">Select Department</option>
+            {departments.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
+          </select>
+
+          <select value={programId} onChange={e => setProgramId(e.target.value)}>
+            <option value="">Select Program</option>
+            {programs.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+          </select>
+
+          <select value={semesterId} onChange={e => setSemesterId(e.target.value)}>
+            <option value="">Select Semester</option>
+            {semesters.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+          </select>
+
+          <button className="take-att-t-save-btn" onClick={fetchSyllabus}>Fetch Syllabus</button>
+
+          <div style={{ marginTop: '20px' }}>
+            <h4>Syllabus:</h4>
+            {syllabusLink ? (
+              <iframe
+                src={syllabusLink}
+                width="100%"
+                height="750px"
+                title="Syllabus PDF"
+                style={{ border: '1px solid #ccc' }}
+              />
+            ) : (
+              <p>No syllabus available for this selection.</p>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+
+
 const AttendancePage = () => {
-  const [session, setSession] = useState("");
+  const [session,setSession] = useState("");
   const [school, setSchool] = useState("");
   const [department, setDepartment] = useState("");
   const [program, setProgram] = useState("");
@@ -1453,7 +2004,7 @@ const AttendancePage = () => {
   // Fetch schools
   useEffect(() => {
     axios
-      .get("http://localhost:3001/api/schools")
+      .get("https://college-cms-backend-jrmg.onrender.com/api/schools")
       .then((response) => setSchools(response.data))
       .catch((error) => console.error("Error fetching schools:", error));
   }, []);
@@ -1462,7 +2013,7 @@ const AttendancePage = () => {
   useEffect(() => {
     if (school) {
       axios
-        .get(`http://localhost:3001/api/departments/${school}`)
+        .get(`https://college-cms-backend-jrmg.onrender.com/api/departments/${school}`)
         .then((response) => setDepartments(response.data))
         .catch((error) => console.error("Error fetching departments:", error));
     }
@@ -1472,7 +2023,7 @@ const AttendancePage = () => {
   useEffect(() => {
     if (department) {
       axios
-        .get(`http://localhost:3001/api/programs/${department}`)
+        .get(`https://college-cms-backend-jrmg.onrender.com/api/programs/${department}`)
         .then((response) => setPrograms(response.data))
         .catch((error) => console.error("Error fetching programs:", error));
     }
@@ -1483,7 +2034,7 @@ const AttendancePage = () => {
     if (program) {
       axios
         .get(
-          `http://localhost:3001/api/semesters/${program}?session=${session}`
+          `https://college-cms-backend-jrmg.onrender.com/api/semesters/${program}?session=${session}`
         )
         .then((response) => setSemesters(response.data))
         .catch((error) => console.error("Error fetching semesters:", error));
@@ -1494,7 +2045,7 @@ const AttendancePage = () => {
   useEffect(() => {
     if (semester) {
       axios
-        .get(`http://localhost:3001/api/subjects/${semester}`)
+        .get(`https://college-cms-backend-jrmg.onrender.com/api/subjects/${semester}`)
         .then((response) => setSubjects(response.data))
         .catch((error) => console.error("Error fetching subjects:", error));
     }
@@ -1504,7 +2055,7 @@ const AttendancePage = () => {
   useEffect(() => {
     if (program && semester) {
       axios
-        .get(`http://localhost:3001/api/students`, {
+        .get(`https://college-cms-backend-jrmg.onrender.com/api/students`, {
           params: { programId: program, semesterId: semester },
         })
         .then((response) => {
@@ -1537,7 +2088,7 @@ const AttendancePage = () => {
       }));
 
     axios
-      .post("http://localhost:3001/api/attendance", {
+      .post("https://college-cms-backend-jrmg.onrender.com/api/attendance", {
         semesterId: semester,
         subjectId: subject,
         attendanceRecords,
@@ -1580,131 +2131,120 @@ const AttendancePage = () => {
       <DashboardSidebar activePage="attendance" />
       
       <div className="content-area">
-        <div className="attendance-container">
-          <h1>Take Attendance</h1>
+        <div className="take-att-t-container save-atten-back">
+  <h1>Take Attendance</h1>
 
-          <div className="attendance-form">
-            {/* <select value={session} onChange={(e) => setSession(e.target.value)}>
-              <option value="">Select Session</option>
-              <option value="Aug-Dec">Aug-Dec</option>
-              <option value="Jan-Jul">Jan-Jul</option>
-            </select> */}
+  <div className="take-att-t-form">
+    <select value={school} onChange={(e) => setSchool(e.target.value)}>
+      <option value="">Select School</option>
+      {schools.map((s) => (
+        <option key={s.id} value={s.id}>
+          {s.name}
+        </option>
+      ))}
+    </select>
 
-            <select value={school} onChange={(e) => setSchool(e.target.value)}>
-              <option value="">Select School</option>
-              {schools.map((s) => (
-                <option key={s.id} value={s.id}>
-                  {s.name}
-                </option>
-              ))}
-            </select>
+    <select value={department} onChange={(e) => setDepartment(e.target.value)}>
+      <option value="">Select Department</option>
+      {departments.map((d) => (
+        <option key={d.id} value={d.id}>
+          {d.name}
+        </option>
+      ))}
+    </select>
 
-            <select
-              value={department}
-              onChange={(e) => setDepartment(e.target.value)}
-            >
-              <option value="">Select Department</option>
-              {departments.map((d) => (
-                <option key={d.id} value={d.id}>
-                  {d.name}
-                </option>
-              ))}
-            </select>
+    <select value={program} onChange={(e) => setProgram(e.target.value)}>
+      <option value="">Select Program</option>
+      {programs.map((p) => (
+        <option key={p.id} value={p.id}>
+          {p.name}
+        </option>
+      ))}
+    </select>
 
-            <select value={program} onChange={(e) => setProgram(e.target.value)}>
-              <option value="">Select Program</option>
-              {programs.map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.name}
-                </option>
-              ))}
-            </select>
+    <select value={semester} onChange={(e) => setSemester(e.target.value)}>
+      <option value="">Select Semester</option>
+      {semesters.map((s) => (
+        <option key={s.id} value={s.id}>
+          {s.name}
+        </option>
+      ))}
+    </select>
 
-            <select value={semester} onChange={(e) => setSemester(e.target.value)}>
-              <option value="">Select Semester</option>
-              {semesters.map((s) => (
-                <option key={s.id} value={s.id}>
-                  {s.name}
-                </option>
-              ))}
-            </select>
+    <select value={subject} onChange={(e) => setSubject(e.target.value)}>
+      <option value="">Select Subject</option>
+      {subjects.map((s) => (
+        <option key={s.id} value={s.id}>
+          {s.name}
+        </option>
+      ))}
+    </select>
 
-            <select value={subject} onChange={(e) => setSubject(e.target.value)}>
-              <option value="">Select Subject</option>
-              {subjects.map((s) => (
-                <option key={s.id} value={s.id}>
-                  {s.name}
-                </option>
-              ))}
-            </select>
+    <input
+      type="date"
+      value={attendanceDate}
+      onChange={(e) => setAttendanceDate(e.target.value)}
+    />
 
-            <input
-              type="date"
-              value={attendanceDate}
-              onChange={(e) => setAttendanceDate(e.target.value)}
-            />
+    {students.length > 0 && (
+      <div className="take-att-t-students">
+        <h2>Students</h2>
 
-            {students.length > 0 && (
-              <div className="students-attendance">
-                <h2>Students</h2>
-                <div className="check-buttons">
-                  <button className="check-all-btn" onClick={handleCheckAll}>
-                    Check All
-                  </button>
-                  <button className="uncheck-all-btn" onClick={handleUncheckAll}>
-                    Uncheck All
-                  </button>
-                </div>
-                <table className="attendance-table">
-                  <thead>
-                    <tr>
-                      <th>Select</th>
-                      <th>ID</th>
-                      <th>Name</th>
-                      <th>Status</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {students.map((student) => (
-                      <tr key={student.id} className="student-attendance-row">
-                        <td>
-                          <input
-                            type="checkbox"
-                            checked={selectedStudents[student.id] || false}
-                            onChange={() => toggleStudentSelection(student.id)}
-                          />
-                        </td>
-                        <td>{student.id}</td>
-                        <td>
-                          {student.name} ({student.registration_number})
-                        </td>
-                        <td>
-                          <select
-                            value={attendanceStatus[student.id]}
-                            onChange={(e) =>
-                              setAttendanceStatus({
-                                ...attendanceStatus,
-                                [student.id]: e.target.value,
-                              })
-                            }
-                          >
-                            <option value="Present">Present</option>
-                            <option value="Absent">Absent</option>
-                            {/* <option value="Late">Late</option> */}
-                          </select>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-
-            <button className="attendance-next" onClick={handleAttendanceSubmit}>
-              Save Attendance
-            </button>
-          </div>
+        <div className="take-att-t-check-buttons">
+          <button onClick={handleCheckAll}>Check All</button>
+          <button onClick={handleUncheckAll}>Uncheck All</button>
         </div>
+
+        <table className="take-att-t-table">
+          <thead>
+            <tr>
+              <th>Select</th>
+              <th>ID</th>
+              <th>Name</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            {students.map((student) => (
+              <tr key={student.id}>
+                <td>
+                  <input
+                    type="checkbox"
+                    checked={selectedStudents[student.id] || false}
+                    onChange={() => toggleStudentSelection(student.id)}
+                  />
+                </td>
+                <td>{student.id}</td>
+                <td>
+                  {student.name} ({student.registration_number})
+                </td>
+                <td>
+                  <select
+                    value={attendanceStatus[student.id]}
+                    onChange={(e) =>
+                      setAttendanceStatus({
+                        ...attendanceStatus,
+                        [student.id]: e.target.value,
+                      })
+                    }
+                  >
+                    <option value="Present">Present</option>
+                    <option value="Absent">Absent</option>
+                  </select>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    )}
+
+    <button className="take-att-t-save-btn" onClick={handleAttendanceSubmit}>
+      Save Attendance
+    </button>
+  </div>
+</div>
+
       </div>
     </div>
   );
@@ -1736,7 +2276,7 @@ const Step1 = ({
   // Fetch schools on component load
   useEffect(() => {
     axios
-      .get("http://localhost:3001/api/schools")
+      .get("https://college-cms-backend-jrmg.onrender.com/api/schools")
       .then((response) => {
         setSchools(response.data);
       })
@@ -1749,7 +2289,7 @@ const Step1 = ({
   useEffect(() => {
     if (school) {
       axios
-        .get(`http://localhost:3001/api/departments/${school}`)
+        .get(`https://college-cms-backend-jrmg.onrender.com/api/departments/${school}`)
         .then((response) => {
           setDepartments(response.data);
         })
@@ -1763,7 +2303,7 @@ const Step1 = ({
   useEffect(() => {
     if (department) {
       axios
-        .get(`http://localhost:3001/api/programs/${department}`)
+        .get(`https://college-cms-backend-jrmg.onrender.com/api/programs/${department}`)
         .then((response) => {
           setPrograms(response.data);
         })
@@ -1777,7 +2317,7 @@ const Step1 = ({
   useEffect(() => {
     if (program && session) {
       axios
-        .get(`http://localhost:3001/api/semesters/${program}`, {
+        .get(`https://college-cms-backend-jrmg.onrender.com/api/semesters/${program}`, {
           params: { session },
         })
         .then((response) => {
@@ -1877,7 +2417,7 @@ const Step2 = ({
   subjects,
   handleSubjectSelection,
   teachers,
-  setTeachers, // Add this
+  setTeachers,
   assignedTeachers,
   handleTeacherAssignment,
   generateTimetable,
@@ -1890,11 +2430,10 @@ const Step2 = ({
   const [totalCredits, setTotalCredits] = useState(0);
   const TOTAL_ALLOWED_CREDITS = 36;
 
-  // Fetch subjects from the database
   useEffect(() => {
     if (semester) {
       axios
-        .get(`http://localhost:3001/api/subjects/${semester}`)
+        .get(`https://college-cms-backend-jrmg.onrender.com/api/subjects/${semester}`)
         .then((response) => {
           setFetchedSubjects(response.data);
         })
@@ -1904,7 +2443,6 @@ const Step2 = ({
     }
   }, [semester]);
 
-  // Handle credit change for a subject
   const handleCreditChange = (subjectName, credits) => {
     const numCredits = parseInt(credits) || 0;
     const oldCredits = subjectCredits[subjectName] || 0;
@@ -1923,7 +2461,6 @@ const Step2 = ({
     setTotalCredits(newTotalCredits);
   };
 
-  // Add a new subject
   const handleAddSubject = () => {
     if (newSubject.trim() === "") {
       alert("Subject name cannot be empty.");
@@ -1931,14 +2468,13 @@ const Step2 = ({
     }
 
     axios
-      .post(`http://localhost:3001/api/subjects`, {
-        semesterId: semester, // Send the semester ID
-        name: newSubject, // Match the database column name
+      .post(`https://college-cms-backend-jrmg.onrender.com/api/subjects`, {
+        semesterId: semester,
+        name: newSubject,
       })
       .then((response) => {
-        // Update the local list with the newly added subject
         setFetchedSubjects([...fetchedSubjects, response.data.subject]);
-        setNewSubject(""); // Clear the input field
+        setNewSubject("");
         alert("Subject added successfully.");
       })
       .catch((error) => {
@@ -1947,11 +2483,10 @@ const Step2 = ({
       });
   };
 
-  // Delete a subject
   const handleDeleteSubject = (subjectId) => {
     if (window.confirm("Are you sure you want to delete this subject?")) {
       axios
-        .delete(`http://localhost:3001/api/subjects/${subjectId}`)
+        .delete(`https://college-cms-backend-jrmg.onrender.com/api/subjects/${subjectId}`)
         .then(() => {
           setFetchedSubjects(
             fetchedSubjects.filter((sub) => sub.id !== subjectId)
@@ -1981,7 +2516,6 @@ const Step2 = ({
     navigate("/timetable");
   };
 
-  // Add a new teacher
   const handleAddTeacher = () => {
     if (newTeacher.trim() === "") {
       alert("Teacher name cannot be empty.");
@@ -1989,13 +2523,12 @@ const Step2 = ({
     }
 
     axios
-      .post(`http://localhost:3001/api/teachers`, {
+      .post(`https://college-cms-backend-jrmg.onrender.com/api/teachers`, {
         name: newTeacher,
       })
       .then((response) => {
-        // Update the local list with the newly added teacher
         setTeachers([...teachers, response.data.teacher.name]);
-        setNewTeacher(""); // Clear the input field
+        setNewTeacher("");
         alert("Teacher added successfully.");
       })
       .catch((error) => {
@@ -2004,21 +2537,19 @@ const Step2 = ({
       });
   };
 
-  // Delete a teacher
   const handleDeleteTeacher = (teacherName) => {
     if (
       window.confirm(`Are you sure you want to delete teacher ${teacherName}?`)
     ) {
-      // Find the teacher's ID first
       axios
-        .get("http://localhost:3001/api/teachers")
+        .get("https://college-cms-backend-jrmg.onrender.com/api/teachers")
         .then((response) => {
           const teacherToDelete = response.data.find(
             (t) => t.name === teacherName
           );
           if (teacherToDelete) {
             return axios.delete(
-              `http://localhost:3001/api/teachers/${teacherToDelete.id}`
+              `https://college-cms-backend-jrmg.onrender.com/api/teachers/${teacherToDelete.id}`
             );
           }
           throw new Error("Teacher not found");
@@ -2038,27 +2569,23 @@ const Step2 = ({
     <div className="dashboard-container">
       <DashboardSidebar activePage="generate" />
       <div className="content-area">
-    <div className="Subject-sel-co">
-      {fetchedSubjects.length > 0 && (
-        <div className="Subject-selec">
-          <div className="sub-lab">
-            <h1>Craft Your Class Schedule</h1>
-            <p>
-              Select the subjects, classes, and time slots for your students.
-              Build a customized timetable that ensures a smooth flow of
-              learning throughout the week.
-            </p>
-          </div>
-          <div className="subjects-container">
-            {fetchedSubjects.map((subject) => (
-              <div key={subject.id} className="subject-list">
-                <CustomCheckbox
-                  label={subject.name}
-                  checked={subjects.includes(subject.name)}
-                  onChange={() => handleSubjectSelection(subject.name)}
-                />
-                {subjects.includes(subject.name) && (
-                  <div className="credit-input">
+        <div className="scheduler-container">
+          <h1 className="scheduler-title">Craft Your Class Schedule</h1>
+          <p className="scheduler-desc">
+            Select the subjects, classes, and time slots for your students. Build a customized timetable that ensures a smooth flow of learning throughout the week.
+          </p>
+
+          <div className="scheduler-grid">
+            <div className="card">
+              <h2>Subjects</h2>
+              {fetchedSubjects.map((subject) => (
+                <div key={subject.id} className="list-item">
+                  <CustomCheckbox
+                    label={subject.name}
+                    checked={subjects.includes(subject.name)}
+                    onChange={() => handleSubjectSelection(subject.name)}
+                  />
+                  {subjects.includes(subject.name) && (
                     <input
                       type="number"
                       min="1"
@@ -2067,93 +2594,92 @@ const Step2 = ({
                       onChange={(e) =>
                         handleCreditChange(subject.name, e.target.value)
                       }
-                      placeholder="Credits"
+                      placeholder="Slots"
                     />
-                  </div>
-                )}
-                <button
-                  className="delete-subject-btn"
-                  onClick={() => handleDeleteSubject(subject.id)}
-                >
-                  Delete
-                </button>
+                  )}
+                  <button
+                    className="delete-btn"
+                    onClick={() => handleDeleteSubject(subject.id)}
+                  >
+                    Delete
+                  </button>
+                </div>
+              ))}
+              <div className="add-form">
+                <input
+                  type="text"
+                  placeholder="New subject"
+                  value={newSubject}
+                  onChange={(e) => setNewSubject(e.target.value)}
+                />
+                <button onClick={handleAddSubject}>Add</button>
               </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      <div className="add-subject">
-        <input
-          type="text"
-          placeholder="Enter new subject name"
-          value={newSubject}
-          onChange={(e) => setNewSubject(e.target.value)}
-        />
-        <button onClick={handleAddSubject}>Add Subject</button>
-      </div>
-
-      {subjects.length > 0 && (
-        <div className="assign-tec">
-          <label className="assi-tec">Assign Teachers: </label>
-          {subjects.map((subject) => (
-            <div key={subject} className="select-wrapper">
-              <label>{subject}: </label>
-              <select
-                value={assignedTeachers[subject] || ""}
-                onChange={(e) =>
-                  handleTeacherAssignment(subject, e.target.value)
-                }
-              >
-                <option value="">--Select Teacher--</option>
-                {teachers.map((teacher) => (
-                  <option key={teacher} value={teacher}>
-                    {teacher}
-                  </option>
-                ))}
-              </select>
             </div>
-          ))}
-        </div>
-      )}
 
-      <div className="teacher-management">
-        <h3>Teacher Management</h3>
-        <div className="add-teacher ">
-          <input
-            type="text"
-            placeholder="Enter new teacher name"
-            value={newTeacher}
-            onChange={(e) => setNewTeacher(e.target.value)}
-          />
-          <button onClick={handleAddTeacher}>Add Teacher</button>
-        </div>
-        <h4>Current Teachers</h4>
-        <div className="teacher-list">
-          {teachers.map((teacher) => (
-            <div key={teacher} className="teacher-item">
-              {teacher}
-              <button
-                className="delete-teacher-btn"
-                onClick={() => handleDeleteTeacher(teacher)}
-              >
-                Delete
+            <div className="card">
+              <h2>Teacher Management</h2>
+              <div className="add-form">
+                <input
+                  type="text"
+                  placeholder="New teacher"
+                  value={newTeacher}
+                  onChange={(e) => setNewTeacher(e.target.value)}
+                />
+                <button onClick={handleAddTeacher}>Add</button>
+              </div>
+              <div className="teacher-list">
+                {teachers.map((teacher) => (
+                  <div key={teacher} className="list-item">
+                    {teacher}
+                    <button
+                      className="delete-btn"
+                      onClick={() => handleDeleteTeacher(teacher)}
+                    >
+                      Delete
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {subjects.length > 0 && (
+            <div className="card assign-teacher full-width">
+              <h2>Assign Teachers</h2>
+              {subjects.map((subject) => (
+                <div key={subject} className="list-item">
+                  <label>{subject}:</label>
+                  <select
+                    value={assignedTeachers[subject] || ""}
+                    onChange={(e) =>
+                      handleTeacherAssignment(subject, e.target.value)
+                    }
+                  >
+                    <option value="">--Select Teacher--</option>
+                    {teachers.map((teacher) => (
+                      <option key={teacher} value={teacher}>
+                        {teacher}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {subjects.length > 0 && (
+            <div className="center-button">
+              <button className="gene-tt" onClick={handleGenerateClick}>
+                Generate Timetable
               </button>
             </div>
-          ))}
+          )}
         </div>
       </div>
-
-      {subjects.length > 0 && (
-        <button className="gene-tt" onClick={handleGenerateClick}>
-          Generate Timetable
-        </button>
-      )}
-    </div>
-    </div>
     </div>
   );
 };
+
 
 const CustomCheckbox = ({ label, checked, onChange }) => {
   return (
@@ -2217,7 +2743,7 @@ const TimetablePage = ({
   const checkForConflicts = async (timetable) => {
     try {
       const response = await axios.post(
-        "http://localhost:3001/api/check-conflicts",
+        "https://college-cms-backend-jrmg.onrender.com/api/check-conflicts",
         { timetable }
       );
       setConflicts(response.data.conflicts || []);
@@ -2246,7 +2772,7 @@ const TimetablePage = ({
         if (dayIndex === -1) continue;
         
         // Convert timeSlot to slot index (you may need to adjust this based on your actual time slots)
-        const timeSlots = ["8:45-9:45", "9:45-10:45", "10:45-11:45", "11:45-12:45", "12:00-1:45", "1:45-2:45", "2:45-3:45"];
+        const timeSlots = ["8:45-9:45", "9:45-10:45", "10:45-11:45", "11:45-12:45", "12:45-1:45", "1:45-2:45", "2:45-3:45"];
         const slotIndex = timeSlots.indexOf(timeSlot);
         
         if (slotIndex === -1) continue;
@@ -2306,7 +2832,7 @@ const TimetablePage = ({
     const semesterNumber = semester.replace(/\D/g, "");
     try {
       const response = await axios.post(
-        "http://localhost:3001/api/save-timetable",
+        "https://college-cms-backend-jrmg.onrender.com/api/save-timetable",
         {
           session,
           schoolId: school,
@@ -2359,11 +2885,12 @@ const TimetablePage = ({
 
   return (
     <div className="last-page">
+      <DashboardSidebar activePage="generate" />
       <div className="last-sec-page">
         <h3>Generated Timetable</h3>
         <div id="timetable-wrapper">
           <div id="timetable">
-            <table border="1">
+            <table className="styled-table" border="1">
               <thead>
                 <tr>
                   <th>Time</th>
@@ -2372,7 +2899,7 @@ const TimetablePage = ({
                     "9:45-10:45",
                     "10:45-11:45",
                     "11:45-12:45",
-                    "12:00-1:45",
+                    "12:45-1:45",
                     "1:45-2:45",
                     "2:45-3:45",
                   ].map((time, index) => (
@@ -2469,9 +2996,143 @@ const TimetablePage = ({
     </div>
   );
 };
-
 const AssignAssignmentPage = () => {
   const [session, setSession] = useState("");
+  const [school, setSchool] = useState("");
+  const [department, setDepartment] = useState("");
+  const [program, setProgram] = useState("");
+  const [semester, setSemester] = useState("");
+  const [subject, setSubject] = useState("");
+  const [assignmentTitle, setAssignmentTitle] = useState("");
+  const [assignmentDescription, setAssignmentDescription] = useState("");
+  const [dueDate, setDueDate] = useState("");
+  const [pdfFile, setPdfFile] = useState(null);
+
+  const [schools, setSchools] = useState([]);
+  const [departments, setDepartments] = useState([]);
+  const [programs, setPrograms] = useState([]);
+  const [semesters, setSemesters] = useState([]);
+  const [subjects, setSubjects] = useState([]);
+
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    axios.get("https://college-cms-backend-jrmg.onrender.com/api/schools").then((res) => setSchools(res.data));
+  }, []);
+
+  useEffect(() => {
+    if (school) {
+      axios.get(`https://college-cms-backend-jrmg.onrender.com/api/departments/${school}`).then((res) => setDepartments(res.data));
+    }
+  }, [school]);
+
+  useEffect(() => {
+    if (department) {
+      axios.get(`https://college-cms-backend-jrmg.onrender.com/api/programs/${department}`).then((res) => setPrograms(res.data));
+    }
+  }, [department]);
+
+  useEffect(() => {
+    if (program) {
+      axios.get(`https://college-cms-backend-jrmg.onrender.com/api/semesters/${program}`).then((res) => setSemesters(res.data));
+    }
+  }, [program]);
+
+  useEffect(() => {
+    if (semester) {
+      axios.get(`https://college-cms-backend-jrmg.onrender.com/api/subjects/${semester}`).then((res) => setSubjects(res.data));
+    }
+  }, [semester]);
+
+  const handleCreateAssignment = () => {
+    if (!subject || !assignmentTitle || !dueDate || !pdfFile) {
+      alert("Please fill in all fields and upload a PDF");
+      return;
+    }
+
+    const formData = new FormData();
+    formData.append("semesterId", semester);
+    formData.append("subjectId", subject);
+    formData.append("title", assignmentTitle);
+    formData.append("description", assignmentDescription);
+    formData.append("dueDate", dueDate);
+    formData.append("pdf", pdfFile);
+
+    axios
+      .post("https://college-cms-backend-jrmg.onrender.com/api/assignments/upload", formData)
+      .then(() => {
+        alert("Assignment created!");
+        setAssignmentTitle("");
+        setAssignmentDescription("");
+        setDueDate("");
+        setPdfFile(null);
+      })
+      .catch((err) => {
+        console.error("Upload error:", err);
+        alert("Failed to create assignment.");
+      });
+  };
+
+  return (
+    <div className="dashboard-container">
+      <DashboardSidebar activePage="assign" />
+      <div className="content-area">
+        <div className="display-assignments-container">
+        <h1>Assign Assignment</h1>
+        <div className="display-assignments-form">
+          <select value={school} onChange={(e) => setSchool(e.target.value)}>
+            <option value="">Select School</option>
+            {schools.map((s) => (
+              <option key={s.id} value={s.id}>{s.name}</option>
+            ))}
+          </select>
+
+          <select value={department} onChange={(e) => setDepartment(e.target.value)}>
+            <option value="">Select Department</option>
+            {departments.map((d) => (
+              <option key={d.id} value={d.id}>{d.name}</option>
+            ))}
+          </select>
+
+          <select value={program} onChange={(e) => setProgram(e.target.value)}>
+            <option value="">Select Program</option>
+            {programs.map((p) => (
+              <option key={p.id} value={p.id}>{p.name}</option>
+            ))}
+          </select>
+
+          <select value={semester} onChange={(e) => setSemester(e.target.value)}>
+            <option value="">Select Semester</option>
+            {semesters.map((s) => (
+              <option key={s.id} value={s.id}>{s.name}</option>
+            ))}
+          </select>
+
+          <select value={subject} onChange={(e) => setSubject(e.target.value)}>
+            <option value="">Select Subject</option>
+            {subjects.map((s) => (
+              <option key={s.id} value={s.id}>{s.name}</option>
+            ))}
+          </select>
+
+          <input type="text" placeholder="Assignment Title" value={assignmentTitle} onChange={(e) => setAssignmentTitle(e.target.value)} />
+          <textarea placeholder="Assignment Description" value={assignmentDescription} onChange={(e) => setAssignmentDescription(e.target.value)} />
+          <label>Due Date</label>
+          <input type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} />
+          <label>Upload PDF</label>
+          <input type="file" accept="application/pdf" onChange={(e) => setPdfFile(e.target.files[0])} />
+
+          <button className="attendance-next" onClick={handleCreateAssignment}>Create Assignment</button>
+          <button className="attendance-next" onClick={() => navigate("/")}>Home</button>
+        </div>
+      </div>
+    </div>
+      </div>
+  );
+};
+
+const StudentAssignmentPage = () => {
+  const [session,setSession] = useState("");
   const [school, setSchool] = useState("");
   const [department, setDepartment] = useState("");
   const [program, setProgram] = useState("");
@@ -2482,210 +3143,6 @@ const AssignAssignmentPage = () => {
   const [programs, setPrograms] = useState([]);
   const [semesters, setSemesters] = useState([]);
   const [subjects, setSubjects] = useState([]);
-  const [assignmentTitle, setAssignmentTitle] = useState("");
-  const [assignmentDescription, setAssignmentDescription] = useState("");
-  const [dueDate, setDueDate] = useState("");
-  // const [maxMarks, setMaxMarks] = useState("");
-  const navigate = useNavigate();
-
-  // Fetch schools
-  useEffect(() => {
-    axios
-      .get("http://localhost:3001/api/schools")
-      .then((response) => setSchools(response.data))
-      .catch((error) => console.error("Error fetching schools:", error));
-  }, []);
-
-  // Fetch departments when school is selected
-  useEffect(() => {
-    if (school) {
-      axios
-        .get(`http://localhost:3001/api/departments/${school}`)
-        .then((response) => setDepartments(response.data))
-        .catch((error) => console.error("Error fetching departments:", error));
-    }
-  }, [school]);
-
-  // Fetch programs when department is selected
-  useEffect(() => {
-    if (department) {
-      axios
-        .get(`http://localhost:3001/api/programs/${department}`)
-        .then((response) => setPrograms(response.data))
-        .catch((error) => console.error("Error fetching programs:", error));
-    }
-  }, [department]);
-
-  // Fetch semesters when program is selected
-  useEffect(() => {
-    if (program) {
-      axios
-        .get(
-          `http://localhost:3001/api/semesters/${program}?session=${session}`
-        )
-        .then((response) => setSemesters(response.data))
-        .catch((error) => console.error("Error fetching semesters:", error));
-    }
-  }, [program, session]);
-
-  // Fetch subjects when semester is selected
-  useEffect(() => {
-    if (semester) {
-      axios
-        .get(`http://localhost:3001/api/subjects/${semester}`)
-        .then((response) => setSubjects(response.data))
-        .catch((error) => console.error("Error fetching subjects:", error));
-    }
-  }, [semester]);
-
-  // const handleSubmitAssignment = () => {
-  //   if (!studentName || !registrationNumber || !selectedAssignment || !assignmentFile) {
-  //     alert('Please fill in all fields and select a file');
-  //     return;
-  //   }
-  const handlecreateAssignment = () => {
-    if (!subject || !assignmentTitle || !dueDate) {
-      alert("Please fill in all required fields");
-      return;
-    }
-
-    axios
-      .post("http://localhost:3001/api/assignments", {
-        semesterId: semester,
-        subjectId: subject,
-        title: assignmentTitle,
-        description: assignmentDescription,
-        dueDate: dueDate,
-        // maxMarks: parseFloat(maxMarks),
-      })
-      .then((response) => {
-        alert("Assignment created successfully!");
-        // Reset form
-        setAssignmentTitle("");
-        setAssignmentDescription("");
-        setDueDate("");
-        // setMaxMarks("");
-      })
-      .catch((error) => {
-        console.error("Error creating assignment:", error);
-        alert("Failed to create assignment");
-      });
-  };
-
-  return (
-    <div className="dashboard-container">
-      <DashboardSidebar activePage="assign" />
-      <div className="content-area">
-    <div className="assign-assignment-container">
-      <h1>Assign Assignment</h1>
-
-      <div className="assignment-form">
-        {/* <select value={session} onChange={(e) => setSession(e.target.value)}>
-          <option value="">Select Session</option>
-          <option value="Aug-Dec">Aug-Dec</option>
-          <option value="Jan-Jul">Jan-Jul</option>
-        </select> */}
-
-        <select value={school} onChange={(e) => setSchool(e.target.value)}>
-          <option value="">Select School</option>
-          {schools.map((s) => (
-            <option key={s.id} value={s.id}>
-              {s.name}
-            </option>
-          ))}
-        </select>
-
-        <select
-          value={department}
-          onChange={(e) => setDepartment(e.target.value)}
-        >
-          <option value="">Select Department</option>
-          {departments.map((d) => (
-            <option key={d.id} value={d.id}>
-              {d.name}
-            </option>
-          ))}
-        </select>
-
-        <select value={program} onChange={(e) => setProgram(e.target.value)}>
-          <option value="">Select Program</option>
-          {programs.map((p) => (
-            <option key={p.id} value={p.id}>
-              {p.name}
-            </option>
-          ))}
-        </select>
-
-        <select value={semester} onChange={(e) => setSemester(e.target.value)}>
-          <option value="">Select Semester</option>
-          {semesters.map((s) => (
-            <option key={s.id} value={s.id}>
-              {s.name}
-            </option>
-          ))}
-        </select>
-
-        <select value={subject} onChange={(e) => setSubject(e.target.value)}>
-          <option value="">Select Subject</option>
-          {subjects.map((s) => (
-            <option key={s.id} value={s.id}>
-              {s.name}
-            </option>
-          ))}
-        </select>
-
-        <input
-          type="text"
-          placeholder="Assignment Title"
-          value={assignmentTitle}
-          onChange={(e) => setAssignmentTitle(e.target.value)}
-        />
-
-        <textarea
-          placeholder="Assignment Description"
-          value={assignmentDescription}
-          onChange={(e) => setAssignmentDescription(e.target.value)}
-        />
-
-        <label>Due Date</label>
-        <input
-          type="date"
-          value={dueDate}
-          onChange={(e) => setDueDate(e.target.value)}
-        />
-
-        {/* <input
-          type="number"
-          placeholder="Max Marks"
-          value={maxMarks}
-          onChange={(e) => setMaxMarks(e.target.value)}
-        /> */}
-
-        <button className="attendance-next" onClick={handlecreateAssignment}>
-          Create Assignment
-        </button>
-        <button className="attendance-next" onClick={() => navigate("/")}>
-          Home
-        </button>
-      </div>
-    </div>
-    </div>
-    </div>
-  );
-};
-
-const StudentAssignmentPage = () => {
-  const [session, setSession] = useState("");
-  const [school, setSchool] = useState("");
-  const [department, setDepartment] = useState("");
-  const [program, setProgram] = useState("");
-  const [semester, setSemester] = useState("");
-  const [subject, setSubject] = useState("");
-  const [schools, setSchools] = useState([]); // Add this line
-  const [departments, setDepartments] = useState([]); // Add this line
-  const [programs, setPrograms] = useState([]); // Add this line
-  const [semesters, setSemesters] = useState([]); // Add this line
-  const [subjects, setSubjects] = useState([]); // Add this line
   const [studentName, setStudentName] = useState("");
   const [registrationNumber, setRegistrationNumber] = useState("");
   const [assignments, setAssignments] = useState([]);
@@ -2693,54 +3150,39 @@ const StudentAssignmentPage = () => {
   const [assignmentFile, setAssignmentFile] = useState(null);
   const navigate = useNavigate();
 
-  // Same fetch logic as previous components for schools, departments, etc.
-  // [Reuse the useEffect hooks from AssignAssignmentPage]
-
-  // Fetch schools
   useEffect(() => {
-    axios
-      .get("http://localhost:3001/api/schools")
+    axios.get("https://college-cms-backend-jrmg.onrender.com/api/schools")
       .then((response) => setSchools(response.data))
       .catch((error) => console.error("Error fetching schools:", error));
   }, []);
 
-  // Fetch departments when school is selected
   useEffect(() => {
     if (school) {
-      axios
-        .get(`http://localhost:3001/api/departments/${school}`)
+      axios.get(`https://college-cms-backend-jrmg.onrender.com/api/departments/${school}`)
         .then((response) => setDepartments(response.data))
         .catch((error) => console.error("Error fetching departments:", error));
     }
   }, [school]);
 
-  // Fetch programs when department is selected
   useEffect(() => {
     if (department) {
-      axios
-        .get(`http://localhost:3001/api/programs/${department}`)
+      axios.get(`https://college-cms-backend-jrmg.onrender.com/api/programs/${department}`)
         .then((response) => setPrograms(response.data))
         .catch((error) => console.error("Error fetching programs:", error));
     }
   }, [department]);
 
-  // Fetch semesters when program is selected
   useEffect(() => {
     if (program) {
-      axios
-        .get(
-          `http://localhost:3001/api/semesters/${program}?session=${session}`
-        )
+      axios.get(`https://college-cms-backend-jrmg.onrender.com/api/semesters/${program}?session=${session}`)
         .then((response) => setSemesters(response.data))
         .catch((error) => console.error("Error fetching semesters:", error));
     }
   }, [program, session]);
 
-  // Fetch subjects when semester is selected
   useEffect(() => {
     if (semester) {
-      axios
-        .get(`http://localhost:3001/api/subjects/${semester}`)
+      axios.get(`https://college-cms-backend-jrmg.onrender.com/api/subjects/${semester}`)
         .then((response) => setSubjects(response.data))
         .catch((error) => console.error("Error fetching subjects:", error));
     }
@@ -2748,8 +3190,7 @@ const StudentAssignmentPage = () => {
 
   useEffect(() => {
     if (subject) {
-      axios
-        .get(`http://localhost:3001/api/assignments/${subject}`)
+      axios.get(`https://college-cms-backend-jrmg.onrender.com/api/assignments/${subject}`)
         .then((response) => setAssignments(response.data))
         .catch((error) => console.error("Error fetching assignments:", error));
     }
@@ -2760,12 +3201,7 @@ const StudentAssignmentPage = () => {
   };
 
   const handleSubmitAssignment = () => {
-    if (
-      !studentName ||
-      !registrationNumber ||
-      !selectedAssignment ||
-      !assignmentFile
-    ) {
+    if (!studentName || !registrationNumber || !selectedAssignment || !assignmentFile) {
       alert("Please fill in all fields and select a file");
       return;
     }
@@ -2776,15 +3212,11 @@ const StudentAssignmentPage = () => {
     formData.append("registrationNumber", registrationNumber);
     formData.append("assignmentFile", assignmentFile);
 
-    axios
-      .post("http://localhost:3001/api/student-assignments", formData, {
-        headers: {
-          "Content-Type": "multipart/form-data",
-        },
-      })
-      .then((response) => {
+    axios.post("https://college-cms-backend-jrmg.onrender.com/api/student-assignments", formData, {
+      headers: { "Content-Type": "multipart/form-data" },
+    })
+      .then(() => {
         alert("Assignment submitted successfully!");
-        // Reset form
         setSelectedAssignment(null);
         setAssignmentFile(null);
       })
@@ -2798,104 +3230,101 @@ const StudentAssignmentPage = () => {
     <div className="dashboard-container">
       <DashboardSidebar activePage="assignment" />
       <div className="content-area">
-    <div className="student-assignment-container">
-      <h1>Student Assignment Submission</h1>
+        <div className="student-assignment-container">
+          <h1>Student Assignment Submission</h1>
 
-      <div className="student-assignment-form">
-        {/* Reuse the select dropdowns from previous components */}
-        {/* [Same dropdowns for session, school, department, program, semester, subject] */}
+          <div className="student-assignment-form">
+            <select value={school} onChange={(e) => setSchool(e.target.value)}>
+              <option value="">Select School</option>
+              {schools.map((s) => (
+                <option key={s.id} value={s.id}>{s.name}</option>
+              ))}
+            </select>
 
-        {/* <select value={session} onChange={(e) => setSession(e.target.value)}>
-          <option value="">Select Session</option>
-          <option value="Aug-Dec">Aug-Dec</option>
-          <option value="Jan-Jul">Jan-Jul</option>
-        </select> */}
+            <select value={department} onChange={(e) => setDepartment(e.target.value)}>
+              <option value="">Select Department</option>
+              {departments.map((d) => (
+                <option key={d.id} value={d.id}>{d.name}</option>
+              ))}
+            </select>
 
-        <select value={school} onChange={(e) => setSchool(e.target.value)}>
-          <option value="">Select School</option>
-          {schools.map((s) => (
-            <option key={s.id} value={s.id}>
-              {s.name}
-            </option>
-          ))}
-        </select>
+            <select value={program} onChange={(e) => setProgram(e.target.value)}>
+              <option value="">Select Program</option>
+              {programs.map((p) => (
+                <option key={p.id} value={p.id}>{p.name}</option>
+              ))}
+            </select>
 
-        <select
-          value={department}
-          onChange={(e) => setDepartment(e.target.value)}
-        >
-          <option value="">Select Department</option>
-          {departments.map((d) => (
-            <option key={d.id} value={d.id}>
-              {d.name}
-            </option>
-          ))}
-        </select>
+            <select value={semester} onChange={(e) => setSemester(e.target.value)}>
+              <option value="">Select Semester</option>
+              {semesters.map((s) => (
+                <option key={s.id} value={s.id}>{s.name}</option>
+              ))}
+            </select>
 
-        <select value={program} onChange={(e) => setProgram(e.target.value)}>
-          <option value="">Select Program</option>
-          {programs.map((p) => (
-            <option key={p.id} value={p.id}>
-              {p.name}
-            </option>
-          ))}
-        </select>
+            <select value={subject} onChange={(e) => setSubject(e.target.value)}>
+              <option value="">Select Subject</option>
+              {subjects.map((s) => (
+                <option key={s.id} value={s.id}>{s.name}</option>
+              ))}
+            </select>
 
-        <select value={semester} onChange={(e) => setSemester(e.target.value)}>
-          <option value="">Select Semester</option>
-          {semesters.map((s) => (
-            <option key={s.id} value={s.id}>
-              {s.name}
-            </option>
-          ))}
-        </select>
+            <input
+              type="text"
+              placeholder="Student Name"
+              value={studentName}
+              onChange={(e) => setStudentName(e.target.value)}
+            />
+            <input
+              type="text"
+              placeholder="Registration Number"
+              value={registrationNumber}
+              onChange={(e) => setRegistrationNumber(e.target.value)}
+            />
 
-        <select value={subject} onChange={(e) => setSubject(e.target.value)}>
-          <option value="">Select Subject</option>
-          {subjects.map((s) => (
-            <option key={s.id} value={s.id}>
-              {s.name}
-            </option>
-          ))}
-        </select>
+            <select
+              value={selectedAssignment || ""}
+              onChange={(e) => setSelectedAssignment(e.target.value)}
+            >
+              <option value="">Select Assignment</option>
+              {assignments.map((a) => (
+                <option key={a.id} value={a.id}>
+                  {a.title} (Due: {a.due_date})
+                </option>
+              ))}
+            </select>
 
-        <input
-          type="text"
-          placeholder="Student Name"
-          value={studentName}
-          onChange={(e) => setStudentName(e.target.value)}
-        />
+            {selectedAssignment && (() => {
+  const selected = assignments.find(a => a.id === selectedAssignment);
+  return selected?.pdf_path ? (
+    <div style={{ marginBottom: "10px" }}>
+      <a
+        href={`https://college-cms-backend-jrmg.onrender.com/uploads/${selected.pdf_path}`}
+        target="_blank"
+        rel="noopener noreferrer"
+        download
+      >
+        📄 Download Assignment PDF
+      </a>
+    </div>
+  ) : (
+    <div style={{ marginBottom: "10px", color: "gray", fontStyle: "italic" }}>
+      No PDF available for this assignment.
+    </div>
+  );
+})()}
 
-        <input
-          type="text"
-          placeholder="Registration Number"
-          value={registrationNumber}
-          onChange={(e) => setRegistrationNumber(e.target.value)}
-        />
+            <input type="file" onChange={handleFileUpload} />
 
-        <select
-          value={selectedAssignment || ""}
-          onChange={(e) => setSelectedAssignment(e.target.value)}
-        >
-          <option value="">Select Assignment</option>
-          {assignments.map((assignment) => (
-            <option key={assignment.id} value={assignment.id}>
-              {assignment.title} (Due: {assignment.due_date})
-            </option>
-          ))}
-        </select>
-
-        <input type="file" onChange={handleFileUpload} />
-
-        <button className="attendance-next" onClick={handleSubmitAssignment}>
-          Submit Assignment
-        </button>
-        <button className="attendance-next" onClick={() => navigate("/")}>
-          Home
-        </button>
+            <button className="attendance-next" onClick={handleSubmitAssignment}>
+              Submit Assignment
+            </button>
+            <button className="attendance-next" onClick={() => navigate("/")}>
+              Home
+            </button>
+          </div>
+        </div>
       </div>
-    </div>
-    </div>
     </div>
   );
 };
@@ -2913,14 +3342,14 @@ const TotalClassesPage = () => {
   const [selectedSemester, setSelectedSemester] = useState("");
 
   useEffect(() => {
-    axios.get("http://localhost:3001/api/schools")
+    axios.get("https://college-cms-backend-jrmg.onrender.com/api/schools")
       .then(res => setSchools(res.data))
       .catch(err => console.error("Error fetching schools:", err));
   }, []);
 
   useEffect(() => {
     if (selectedSchool) {
-      axios.get(`http://localhost:3001/api/departments/${selectedSchool}`)
+      axios.get(`https://college-cms-backend-jrmg.onrender.com/api/departments/${selectedSchool}`)
         .then(res => setDepartments(res.data))
         .catch(err => console.error("Error fetching departments:", err));
     } else {
@@ -2936,7 +3365,7 @@ const TotalClassesPage = () => {
 
   useEffect(() => {
     if (selectedDepartment) {
-      axios.get(`http://localhost:3001/api/programs/${selectedDepartment}`)
+      axios.get(`https://college-cms-backend-jrmg.onrender.com/api/programs/${selectedDepartment}`)
         .then(res => setPrograms(res.data))
         .catch(err => console.error("Error fetching programs:", err));
     } else {
@@ -2950,7 +3379,7 @@ const TotalClassesPage = () => {
 
   useEffect(() => {
     if (selectedProgram) {
-      axios.get(`http://localhost:3001/api/semesters/${selectedProgram}`)
+      axios.get(`https://college-cms-backend-jrmg.onrender.com/api/semesters/${selectedProgram}`)
         .then(res => setSemesters(res.data))
         .catch(err => console.error("Error fetching semesters:", err));
     } else {
@@ -2965,7 +3394,7 @@ const TotalClassesPage = () => {
       alert("Please select a semester first!");
       return;
     }
-    axios.get(`http://localhost:3001/api/subjects/${selectedSemester}`)
+    axios.get(`https://college-cms-backend-jrmg.onrender.com/api/subjects/${selectedSemester}`)
       .then(res => setSubjects(res.data))
       .catch(err => console.error("Error fetching subjects:", err));
   };
@@ -2978,15 +3407,15 @@ const TotalClassesPage = () => {
   };
 
   const handleSave = (id, totalClasses) => {
-    axios.put(`http://localhost:3001/api/subjects/${id}`, { total_classes: totalClasses })
-      .then(response => {
-        alert("Total classes updated successfully");
-      })
-      .catch(error => {
-        console.error("Error updating total classes:", error);
-        alert("Error updating total classes");
-      });
-  };
+  axios.put(`https://college-cms-backend-jrmg.onrender.com/api/subjects/${id}`, { total_classes: totalClasses })
+    .then(response => {
+      Swal.fire('Success!', 'Total classes updated successfully', 'success');
+    })
+    .catch(error => {
+      console.error("Error updating total classes:", error);
+      Swal.fire('Error!', 'Error updating total classes', 'error');
+    });
+};
 
   return (
     <div className="dashboard-container">
@@ -2994,7 +3423,7 @@ const TotalClassesPage = () => {
       <div className="content-area total-classes-page">
         <h1>Subjects and Total Classes</h1>
 
-        <div className="filters">
+        <div className="total-classes-form filters">
           <select value={selectedSchool} onChange={(e) => setSelectedSchool(e.target.value)}>
             <option value="">Select School</option>
             {schools.map((school) => (
@@ -3080,7 +3509,7 @@ const App = () => {
 
   useEffect(() => {
     axios
-      .get("http://localhost:3001/api/teachers")
+      .get("https://college-cms-backend-jrmg.onrender.com/api/teachers")
       .then((response) => {
         // Assuming the response contains an array of teacher objects with a 'name' property
         const teacherNames = response.data.map((teacher) => teacher.name);
@@ -3273,7 +3702,7 @@ const App = () => {
       "9:45-10:45",
       "10:45-11:45",
       "11:45-12:45",
-      "12:00-1:45",
+      "12:45-1:45",
       "1:45-2:45",
       "2:45-3:45",
     ];
@@ -3375,6 +3804,13 @@ const App = () => {
     <Route path="/show-admin-attendance" element={<ShowAdminAttendance />} />
     <Route path="/chatbot" element={<ChatBot />} />
     <Route path="/total-classes" element={<TotalClassesPage />} />
+    <Route path="/generated-timetables" element={<GeneratedTimetables />} />
+    <Route path="/library-search-page" element={<LibrarySearchPage />} />
+    <Route path="/syllabus-viewer" element={<SyllabusViewer />} />
+    <Route path="showfilteredattendance" element={<ShowFilteredAttendance />} />
+
+
+
 
       </Routes>
     </Router>
