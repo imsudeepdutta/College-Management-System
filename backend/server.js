@@ -4,7 +4,7 @@ const cors = require('cors');
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
-const bcrypt = require('bcryptjs');
+const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const bodyParser = require('body-parser');
 const axios = require("axios");
@@ -12,19 +12,32 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-app.get('/', (req, res) => 
-{
-  res.send('College Management System Backend is running');
-});
+// Serve uploaded files
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 // MySQL connection
+require('dotenv').config();
+
 const db = mysql.createConnection({
-  host: 'srv1948.hstgr.io',
-  user: 'u547393534_Suraj',
-  password: 'Sur@j123college',
-  database: 'u547393534_Collee_system',
-  port: 3306
+  host: process.env.DB_HOST,
+  user: process.env.DB_USER,
+  password: process.env.DB_PASSWORD,
+  database: process.env.DB_NAME,
+  port: process.env.DB_PORT
 });
+
+
+// Helper to use MySQL queries with async/await
+function dbQuery(query, params) {
+  return new Promise((resolve, reject) => {
+    db.query(query, params, (error, results) => {
+      if (error) reject(error);
+      else resolve(results);
+    });
+  });
+}
+
+
 
 db.connect((err) => {
   if (err) {
@@ -49,6 +62,11 @@ const storage = multer.diskStorage({
   }
 });
 const upload = multer({ storage: storage });
+
+app.get("/", (req, res) => {
+  res.send("Backend is working ✅");
+});
+
 
 app.get('/api/student/attendance/:studentId', (req, res) => {
   const studentId = req.params.studentId;
@@ -76,6 +94,129 @@ app.get('/api/student/attendance/:studentId', (req, res) => {
       const totalAttendancePercentage = totalClasses > 0 ? (totalPresent / totalClasses) * 100 : 0;
 
       res.json({ subjects: results, totalAttendancePercentage });
+  });
+});
+
+app.get("/api/attendance/average-attendance", async (req, res) => {
+  const { school_id, department_id, program_id, semester_id, from_date, to_date } = req.query;
+
+  try {
+    // Get subjects for the semester
+    const subjects = await dbQuery(`
+      SELECT s.id, s.name 
+      FROM subjects s
+      INNER JOIN semesters sem ON s.semester_id = sem.id
+      WHERE sem.id = ?
+    `, [semester_id]);
+
+    const result = [];
+
+    for (const subject of subjects) {
+      const days = await dbQuery(`
+        SELECT date 
+        FROM attendance_records
+        WHERE subject_id = ? AND date BETWEEN ? AND ?
+        GROUP BY date
+      `, [subject.id, from_date, to_date]);
+
+      const dailyAverages = [];
+
+      for (const day of days) {
+        const attendance = await dbQuery(`
+          SELECT COUNT(*) AS present 
+          FROM attendance_records 
+          WHERE subject_id = ? AND date = ? AND status = 'Present'
+        `, [subject.id, day.date]);
+
+        dailyAverages.push(attendance[0].present);
+      }
+
+      const avg = dailyAverages.length
+        ? dailyAverages.reduce((a, b) => a + b, 0) / dailyAverages.length
+        : 0;
+
+      result.push({ subject: subject.name, average_attendance: parseFloat(avg.toFixed(2)) });
+    }
+
+    res.json(result);
+  } catch (error) {
+    console.error("Error fetching average attendance:", error);
+    res.status(500).json({ message: "Error fetching average attendance" });
+  }
+});
+
+app.get('/api/library/books', (req, res) => {
+  const search = req.query.q || '';
+  const query = `
+    SELECT * FROM library_books
+    WHERE title LIKE ? OR author LIKE ? OR publisher LIKE ? OR serial_number LIKE ?
+  `;
+  const likeSearch = `%${search}%`;
+  db.query(query, [likeSearch, likeSearch, likeSearch, likeSearch], (err, results) => {
+    if (err) return res.status(500).send(err);
+    res.json(results);
+  });
+});
+
+app.get('/api/syllabus', (req, res) => {
+  const { schoolId, departmentId, programId, semesterId } = req.query;
+
+  if (!schoolId || !departmentId || !programId || !semesterId) {
+    return res.status(400).json({ error: "All parameters are required" });
+  }
+
+  const query = `
+    SELECT * FROM syllabus 
+    WHERE school_id = ? AND department_id = ? AND program_id = ? AND semester_id = ?
+  `;
+  db.query(query, [schoolId, departmentId, programId, semesterId], (err, results) => {
+    if (err) return res.status(500).send(err);
+    res.json(results[0] || {});
+  });
+});
+
+
+
+app.get('/api/teacher/timetable/:teacherId', (req, res) => {
+  const teacherId = req.params.teacherId;
+
+  const getTeacherNameQuery = `SELECT name FROM teachers WHERE id = ?`;
+  db.query(getTeacherNameQuery, [teacherId], (err, teacherResult) => {
+    if (err || teacherResult.length === 0) {
+      return res.status(500).json({ message: "Teacher not found" });
+    }
+
+    const teacherName = teacherResult[0].name;
+
+    const timetableQuery = `
+      SELECT day, time_slot, subject, semester_number
+      FROM timetable_entries
+      WHERE teacher = ?
+    `;
+
+    db.query(timetableQuery, [teacherName], (err, timetableResult) => {
+      if (err) {
+        return res.status(500).json({ message: "Error fetching timetable" });
+      }
+
+      const oddSem = {};
+      const evenSem = {};
+
+      timetableResult.forEach(entry => {
+        const { day, time_slot, subject, semester_number } = entry;
+        const entryStr = `${subject} (Sem ${semester_number})`;
+
+        if (semester_number % 2 === 1) {
+          if (!oddSem[day]) oddSem[day] = {};
+          oddSem[day][time_slot] = entryStr;
+        } else {
+          if (!evenSem[day]) evenSem[day] = {};
+          evenSem[day][time_slot] = entryStr;
+        }
+      });
+
+      res.json({ odd: oddSem, even: evenSem });
+    });
   });
 });
 
@@ -620,7 +761,8 @@ app.get('/api/teacher/profile', verifyTeacherToken, (req, res) => {
 
 // Add these endpoints to your backend server.js or index.js file
 
-const JWT_SECRET = 'your_secret_key_change_this_in_production';
+const JWT_SECRET = process.env.JWT_SECRET;
+
 
 // Admin Registration
 app.post('/api/admin/register', async (req, res) => {
@@ -931,71 +1073,70 @@ app.post('/api/attendance', (req, res) => {
     });
   });
 });
+app.get('/api/admin/attendance', async (req, res) => {
+  const { schoolId, departmentId, programId, semesterId, threshold } = req.query;
 
-app.get('/api/admin/attendance', (req, res) => {
-  const { schoolId, departmentId, programId, semesterId } = req.query;
+  try {
+    const students = await dbQuery(`
+      SELECT id, name AS student_name, registration_number 
+      FROM students 
+      WHERE program_id = ? AND semester_id = ?
+    `, [programId, semesterId]);
 
-  if (!schoolId || !departmentId || !programId || !semesterId) {
-    return res.status(400).json({ message: "All filters are required" });
-  }
+    const subjects = await dbQuery(`
+      SELECT id, name AS subject_name 
+      FROM subjects 
+      WHERE semester_id = ?
+    `, [semesterId]);
 
-  const query = `
-      SELECT 
-          s.id AS student_id,
-          s.name AS student_name,
-          s.registration_number,
-          sub.id AS subject_id,
-          sub.name AS subject_name,
-          COUNT(CASE WHEN ar.status = 'Present' THEN 1 END) AS present_count,
-          COUNT(*) AS total_classes,
-          (COUNT(CASE WHEN ar.status = 'Present' THEN 1 END) / COUNT(*)) * 100 AS attendance_percentage
-      FROM attendance_records ar
-      JOIN students s ON ar.student_id = s.id
-      JOIN subjects sub ON ar.subject_id = sub.id
-      JOIN programs p ON s.program_id = p.id
-      JOIN departments d ON p.department_id = d.id
-      JOIN schools sch ON d.school_id = sch.id
-      WHERE sch.id = ? AND d.id = ? AND p.id = ? AND s.semester_id = ?
-      GROUP BY s.id, s.name, s.registration_number, sub.id, sub.name
-  `;
+    const result = [];
 
-  db.query(query, [schoolId, departmentId, programId, semesterId], (err, results) => {
-      if (err) {
-          return res.status(500).json({ error: "Database error", details: err });
+    for (const student of students) {
+      const subjectData = [];
+
+      for (const subject of subjects) {
+        const [attendanceRows] = await dbQuery(`
+          SELECT 
+            COUNT(CASE WHEN status = 'Present' THEN 1 END) AS classes_attended,
+            COUNT(DISTINCT date) AS total_classes
+          FROM attendance_records
+          WHERE student_id = ? AND subject_id = ?
+        `, [student.id, subject.id]);
+
+        const totalClasses = attendanceRows.total_classes || 0;
+        const attended = attendanceRows.classes_attended || 0;
+
+        const attendance_percentage = totalClasses > 0
+          ? ((attended / totalClasses) * 100).toFixed(2)
+          : "0.00";
+
+        subjectData.push({
+          subject_id: subject.id,
+          subject_name: subject.subject_name,
+          total_classes: totalClasses,
+          classes_attended: attended,
+          attendance_percentage
+        });
       }
 
-      const studentData = {};
-      results.forEach(row => {
-          if (!studentData[row.student_id]) {
-              studentData[row.student_id] = {
-                  student_name: row.student_name,
-                  registration_number: row.registration_number,
-                  subjects: [],
-                  totalPresent: 0,
-                  totalClasses: 0
-              };
-          }
-          studentData[row.student_id].subjects.push({
-              subject_id: row.subject_id,
-              subject_name: row.subject_name,
-              present_count: row.present_count,
-              total_classes: row.total_classes,
-              attendance_percentage: row.attendance_percentage
-          });
+      const avgPercent = subjectData.length
+        ? (subjectData.reduce((sum, s) => sum + parseFloat(s.attendance_percentage), 0) / subjectData.length).toFixed(2)
+        : "0.00";
 
-          studentData[row.student_id].totalPresent += row.present_count;
-          studentData[row.student_id].totalClasses += row.total_classes;
-      });
+      if (!threshold || parseFloat(avgPercent) < parseFloat(threshold)) {
+        result.push({
+          student_name: student.student_name,
+          registration_number: student.registration_number,
+          subjects: subjectData
+        });
+      }
+    }
 
-      const response = Object.values(studentData).map(student => ({
-          ...student,
-          totalAttendancePercentage: student.totalClasses > 0 
-              ? (student.totalPresent / student.totalClasses) * 100 
-              : 0
-      }));
-
-      res.json(response);
-  });
+    res.json(result);
+  } catch (err) {
+    console.error("Error in admin attendance API:", err);
+    res.status(500).json({ error: "Server error", details: err });
+  }
 });
 
 
@@ -1024,10 +1165,93 @@ app.post('/api/assignments', (req, res) => {
   );
 });
 
+app.post('/api/assignments/submit', upload.single('pdf'), (req, res) => {
+  const { subjectId, semesterId, title, description, dueDate } = req.body;
+  const pdfPath = req.file ? `/uploads/${req.file.filename}` : null;
+
+  if (!subjectId || !semesterId || !title) {
+    return res.status(400).json({ message: "Missing required fields" });
+  }
+
+  const query = `
+    INSERT INTO assignments (subject_id, semester_id, title, description, due_date, pdf_path)
+    VALUES (?, ?, ?, ?, ?, ?)
+  `;
+  db.query(query, [subjectId, semesterId, title, description, dueDate, pdfPath], (err, result) => {
+    if (err) {
+      console.error("Error saving assignment:", err);
+      return res.status(500).json({ message: "Failed to save assignment" });
+    }
+    res.json({ message: "Assignment submitted successfully" });
+  });
+});
+
+// Fetch assignments for a student's semester
+app.get('/api/student/assignments/:studentId', (req, res) => {
+  const studentId = req.params.studentId;
+
+  const studentQuery = 'SELECT semester_id FROM students WHERE id = ?';
+  db.query(studentQuery, [studentId], (err, studentResult) => {
+    if (err || studentResult.length === 0) {
+      return res.status(500).json({ message: 'Student not found' });
+    }
+
+    const semesterId = studentResult[0].semester_id;
+
+    const assignmentQuery = `
+      SELECT a.id, a.title, a.description, a.due_date, s.name AS subject_name
+      FROM assignments a
+      JOIN subjects s ON a.subject_id = s.id
+      WHERE a.semester_id = ?
+    `;
+
+    db.query(assignmentQuery, [semesterId], (err, assignmentResult) => {
+      if (err) {
+        return res.status(500).json({ message: 'Error fetching assignments' });
+      }
+
+      res.json(assignmentResult);
+    });
+  });
+});
+
+
+
+app.post('/api/assignments/upload', upload.single('pdf'), (req, res) => {
+  const { semesterId, subjectId, title, description, dueDate } = req.body;
+  const pdfPath = req.file ? req.file.filename : null;
+
+  const query = `
+    INSERT INTO assignments (semester_id, subject_id, title, description, due_date, pdf_path)
+    VALUES (?, ?, ?, ?, ?, ?)
+  `;
+
+  db.query(query, [semesterId, subjectId, title, description, dueDate, pdfPath], (err, result) => {
+    if (err) {
+      console.error("Error inserting assignment:", err);
+      return res.status(500).json({ message: "Database error" });
+    }
+    res.status(201).json({ message: "Assignment created", assignmentId: result.insertId });
+  });
+});
+
+app.get('/api/assignments/pdf/:assignmentId', (req, res) => {
+  const assignmentId = req.params.assignmentId;
+  const query = `SELECT pdf_path FROM assignments WHERE id = ?`;
+
+  db.query(query, [assignmentId], (err, result) => {
+    if (err || result.length === 0) {
+      return res.status(404).json({ message: "Assignment not found" });
+    }
+    res.json({ pdfPath: result[0].pdf_path });
+  });
+});
+
+
 // Get Assignments for a Subject
 app.get('/api/assignments/:subjectId', (req, res) => {
   const query = `
-    SELECT id, title, description, due_date 
+    SELECT id, title, description, due_date, pdf_path
     FROM assignments 
     WHERE subject_id = ?
   `;
@@ -1135,8 +1359,26 @@ app.post('/api/submit-grades', (req, res) => {
   });
 });
 
-// Serve uploaded files
-app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+
+
+// Get syllabus for selected school, department, program, and semester
+app.get('/api/syllabus', (req, res) => {
+  const { schoolId, departmentId, programId, semesterId } = req.query;
+
+  if (!schoolId || !departmentId || !programId || !semesterId) {
+    return res.status(400).json({ error: "All parameters are required" });
+  }
+
+  const query = `
+    SELECT * FROM syllabus 
+    WHERE school_id = ? AND department_id = ? AND program_id = ? AND semester_id = ?
+  `;
+
+  db.query(query, [schoolId, departmentId, programId, semesterId], (err, results) => {
+    if (err) return res.status(500).send(err);
+    res.json(results[0] || {});
+  });
+});
 
 
 // Updated server.js - Add a new endpoint for conflict resolution
@@ -1296,7 +1538,7 @@ app.post('/api/save-timetable', async (req, res) => {
         const days = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
         const timeSlots = [
           "8:45-9:45", "9:45-10:45", "10:45-11:45", "11:45-12:45", 
-          "12:00-1:45", "1:45-2:45", "2:45-3:45"
+          "12:45-1:45", "1:45-2:45", "2:45-3:45"
         ];
 
         timetableData.forEach((dayData, dayIndex) => {
@@ -1380,7 +1622,7 @@ function checkTimetableConflicts(departmentId, programId, semestersToCheck, newT
     const days = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
     const timeSlots = [
       "8:45-9:45", "9:45-10:45", "10:45-11:45", "11:45-12:45", 
-      "12:00-1:45", "1:45-2:45", "2:45-3:45"
+      "12:45-1:45", "1:45-2:45", "2:45-3:45"
     ];
 
     // Collect all potential conflicts
@@ -1448,6 +1690,69 @@ function checkTimetableConflicts(departmentId, programId, semestersToCheck, newT
   });
 }
 
+app.get('/api/admin/filtered-attendance', async (req, res) => {
+  const { schoolId, departmentId, programId, semesterId, threshold } = req.query;
+
+  if (!schoolId || !departmentId || !programId || !semesterId || !threshold) {
+    return res.status(400).json({ error: "All parameters including threshold are required." });
+  }
+
+  try {
+    const students = await dbQuery(`
+      SELECT id, name AS student_name, registration_number
+      FROM students
+      WHERE school_id = ? AND department_id = ? AND program_id = ? AND semester_id = ?
+    `, [schoolId, departmentId, programId, semesterId]);
+
+    const result = [];
+
+    for (const student of students) {
+      const attendance = await dbQuery(`
+        SELECT 
+          s.id AS subject_id,
+          s.name AS subject_name,
+          COUNT(*) AS total_classes,
+          SUM(CASE WHEN ar.status = 'Present' THEN 1 ELSE 0 END) AS present_count
+        FROM subjects s
+        JOIN attendance_records ar ON ar.subject_id = s.id AND ar.student_id = ?
+        WHERE s.semester_id = ?
+        GROUP BY s.id
+      `, [student.id, semesterId]);
+
+      let totalPresent = 0;
+      let totalClasses = 0;
+
+      const subjects = attendance.map((a) => {
+        totalPresent += a.present_count;
+        totalClasses += a.total_classes;
+
+        return {
+          subject_id: a.subject_id,
+          subject_name: a.subject_name,
+          attendance_percentage: a.total_classes ? (a.present_count / a.total_classes) * 100 : 0
+        };
+      });
+
+      const totalAttendancePercentage = totalClasses ? (totalPresent / totalClasses) * 100 : 0;
+
+      if (totalAttendancePercentage < parseFloat(threshold)) {
+        result.push({
+          student_name: student.student_name,
+          registration_number: student.registration_number,
+          totalAttendancePercentage,
+          subjects
+        });
+      }
+    }
+
+    res.json(result);
+  } catch (err) {
+    console.error("Error fetching filtered attendance:", err);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
+
 //display assignments
 
 // In your backend server file (likely server.js or index.js)
@@ -1487,6 +1792,22 @@ app.get('/api/timetables/:semesterId', (req, res) => {
           res.json(timetables);
       }
   );
+});
+
+app.delete('/api/timetable/:id', (req, res) => {
+  const timetableId = req.params.id;
+
+  const deleteEntriesQuery = 'DELETE FROM timetable_entries WHERE timetable_id = ?';
+  const deleteTimetableQuery = 'DELETE FROM saved_timetables WHERE id = ?';
+
+  db.query(deleteEntriesQuery, [timetableId], (err) => {
+    if (err) return res.status(500).json({ error: err });
+
+    db.query(deleteTimetableQuery, [timetableId], (err2) => {
+      if (err2) return res.status(500).json({ error: err2 });
+      res.json({ message: 'Timetable deleted successfully' });
+    });
+  });
 });
 
 // Get timetable details
@@ -1574,9 +1895,11 @@ app.delete('/api/subjects/:subjectId', (req, res) => {
 });
 
 
-app.listen(3001, () => {
-  console.log('Server is running on port 3001');
+const PORT = process.env.PORT || 3001;
+app.listen(PORT, () => {
+  console.log(`Server is running on port ${PORT}`);
 });
+
 
 
 // Add Teacher
@@ -1614,6 +1937,52 @@ app.delete('/api/teachers/:teacherId', (req, res) => {
       return res.status(404).json({ message: 'Teacher not found' });
     }
     res.json({ message: 'Teacher deleted successfully' });
+  });
+});
+
+
+app.get('/api/generated-timetables', (req, res) => {
+  const query = `
+    SELECT st.id as timetable_id, st.session, st.created_at,
+           s.name as school_name, d.name as department_name, p.name as program_name, sem.name as semester_name,
+           e.day, e.time_slot, e.subject, e.teacher
+    FROM saved_timetables st
+    JOIN schools s ON s.id = st.school_id
+    JOIN departments d ON d.id = st.department_id
+    JOIN programs p ON p.id = st.program_id
+    JOIN semesters sem ON sem.id = st.semester_id
+    LEFT JOIN timetable_entries e ON e.timetable_id = st.id
+    ORDER BY st.id, FIELD(e.day, 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'), e.time_slot
+  `;
+  db.query(query, (err, results) => {
+    if (err) {
+      res.status(500).json({ error: err });
+    } else {
+      const grouped = results.reduce((acc, row) => {
+        if (!acc[row.timetable_id]) {
+          acc[row.timetable_id] = {
+            timetable_id: row.timetable_id,
+            session: row.session,
+            created_at: row.created_at,
+            school: row.school_name,
+            department: row.department_name,
+            program: row.program_name,
+            semester: row.semester_name,
+            entries: []
+          };
+        }
+        if (row.day && row.time_slot) {
+          acc[row.timetable_id].entries.push({
+            day: row.day,
+            time_slot: row.time_slot,
+            subject: row.subject,
+            teacher: row.teacher
+          });
+        }
+        return acc;
+      }, {});
+      res.json(Object.values(grouped));
+    }
   });
 });
 
