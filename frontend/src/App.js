@@ -123,7 +123,7 @@ const AdminPage = () => {
 
     if (isRegistering) {
       // Register admin
-      axios.post("https://college-cms-backend-jrmg.onrender.com/api/admin/register", { username, password })
+      axios.post("https://cms.sudeepdutta.com/api/admin/register", { username, password })
         .then(response => {
           localStorage.setItem("adminToken", response.data.token);
           navigate("/admin-dashboard");
@@ -133,7 +133,7 @@ const AdminPage = () => {
         });
     } else {
       // Login admin
-      axios.post("https://college-cms-backend-jrmg.onrender.com/api/admin/login", { username, password })
+      axios.post("https://cms.sudeepdutta.com/api/admin/login", { username, password })
         .then(response => {
           localStorage.setItem("adminToken", response.data.token);
           navigate("/admin-dashboard");
@@ -217,22 +217,22 @@ const ShowFilteredAttendance = () => {
   const [selectedSemester, setSelectedSemester] = useState("");
 
   useEffect(() => {
-    axios.get("https://college-cms-backend-jrmg.onrender.com/api/schools").then((res) => setSchools(res.data));
+    axios.get("https://cms.sudeepdutta.com/api/schools").then((res) => setSchools(res.data));
   }, []);
 
   useEffect(() => {
     if (selectedSchool)
-      axios.get(`https://college-cms-backend-jrmg.onrender.com/api/departments/${selectedSchool}`).then((res) => setDepartments(res.data));
+      axios.get(`https://cms.sudeepdutta.com/api/departments/${selectedSchool}`).then((res) => setDepartments(res.data));
   }, [selectedSchool]);
 
   useEffect(() => {
     if (selectedDepartment)
-      axios.get(`https://college-cms-backend-jrmg.onrender.com/api/programs/${selectedDepartment}`).then((res) => setPrograms(res.data));
+      axios.get(`https://cms.sudeepdutta.com/api/programs/${selectedDepartment}`).then((res) => setPrograms(res.data));
   }, [selectedDepartment]);
 
   useEffect(() => {
     if (selectedProgram)
-      axios.get(`https://college-cms-backend-jrmg.onrender.com/api/semesters/${selectedProgram}`).then((res) => setSemesters(res.data));
+      axios.get(`https://cms.sudeepdutta.com/api/semesters/${selectedProgram}`).then((res) => setSemesters(res.data));
   }, [selectedProgram]);
 
   const fetchFilteredAttendance = () => {
@@ -241,7 +241,7 @@ const ShowFilteredAttendance = () => {
       return;
     }
 
-    axios.get("https://college-cms-backend-jrmg.onrender.com/api/admin/filtered-attendance", {
+    axios.get("https://cms.sudeepdutta.com/api/admin/filtered-attendance", {
       params: {
         schoolId: selectedSchool,
         departmentId: selectedDepartment,
@@ -352,7 +352,7 @@ const StudentLoginPage = () => {
     
     // Fetch programs for registration
     if (isRegistering) {
-      axios.get("https://college-cms-backend-jrmg.onrender.com/api/programs")
+      axios.get("https://cms.sudeepdutta.com/api/programs")
         .then(response => setPrograms(response.data))
         .catch(error => console.error("Error fetching programs:", error));
     }
@@ -361,7 +361,7 @@ const StudentLoginPage = () => {
   // Fetch semesters when program is selected
   useEffect(() => {
     if (programId) {
-      axios.get(`https://college-cms-backend-jrmg.onrender.com/api/semesters/${programId}`)
+      axios.get(`https://cms.sudeepdutta.com/api/semesters/${programId}`)
         .then(response => setSemesters(response.data))
         .catch(error => console.error("Error fetching semesters:", error));
     }
@@ -377,7 +377,7 @@ const StudentLoginPage = () => {
         return;
       }
       
-      axios.post("https://college-cms-backend-jrmg.onrender.com/api/student/register", { 
+      axios.post("https://cms.sudeepdutta.com/api/student/register", { 
         registrationNumber, 
         password,
         name,
@@ -399,7 +399,7 @@ const StudentLoginPage = () => {
         return;
       }
       
-      axios.post("https://college-cms-backend-jrmg.onrender.com/api/student/login", { registrationNumber, password })
+      axios.post("https://cms.sudeepdutta.com/api/student/login", { registrationNumber, password })
         .then(response => {
           localStorage.setItem("studentToken", response.data.token);
           localStorage.setItem("studentId", response.data.studentId);
@@ -523,7 +523,7 @@ const AdminDashboard = () => {
   const fetchAverageAttendance = () => {
     if (!fromDate || !toDate) return;
 
-    axios.get("https://college-cms-backend-jrmg.onrender.com/api/attendance/average-attendance", {
+    axios.get("https://cms.sudeepdutta.com/api/attendance/average-attendance", {
       params: {
         school_id: selectedSchool,
         department_id: selectedDepartment,
@@ -545,10 +545,10 @@ const AdminDashboard = () => {
       navigate("/admin");
     }
 
-    axios.get("https://college-cms-backend-jrmg.onrender.com/api/schools").then(res => setSchools(res.data));
-    axios.get(`https://college-cms-backend-jrmg.onrender.com/api/departments/1`).then(res => setDepartments(res.data));
-    axios.get(`https://college-cms-backend-jrmg.onrender.com/api/programs/1`).then(res => setPrograms(res.data));
-    axios.get(`https://college-cms-backend-jrmg.onrender.com/api/semesters/1`).then(res => setSemesters(res.data));
+    axios.get("https://cms.sudeepdutta.com/api/schools").then(res => setSchools(res.data));
+    axios.get(`https://cms.sudeepdutta.com/api/departments/1`).then(res => setDepartments(res.data));
+    axios.get(`https://cms.sudeepdutta.com/api/programs/1`).then(res => setPrograms(res.data));
+    axios.get(`https://cms.sudeepdutta.com/api/semesters/1`).then(res => setSemesters(res.data));
     fetchSubjects("1");
 
     const today = new Date();
@@ -566,11 +566,11 @@ const AdminDashboard = () => {
   }, [selectedSchool, selectedDepartment, selectedProgram, selectedSemester, fromDate, toDate]);
 
   const fetchSubjects = (semesterId) => {
-    axios.get(`https://college-cms-backend-jrmg.onrender.com/api/subjects/${semesterId}`)
+    axios.get(`https://cms.sudeepdutta.com/api/subjects/${semesterId}`)
       .then(async res => {
         const subjects = res.data;
         const updatedSubjects = await Promise.all(subjects.map(async (subject) => {
-          const response = await axios.get(`https://college-cms-backend-jrmg.onrender.com/api/attendance/unique-dates/${subject.id}`);
+          const response = await axios.get(`https://cms.sudeepdutta.com/api/attendance/unique-dates/${subject.id}`);
           return {
             ...subject,
             classesHeld: response.data.unique_dates_count || 0,
@@ -668,7 +668,7 @@ const StudentDashboard = () => {
     }
 
     const studentId = localStorage.getItem("studentId");
-    axios.get(`https://college-cms-backend-jrmg.onrender.com/api/student/attendance/${studentId}`)
+    axios.get(`https://cms.sudeepdutta.com/api/student/attendance/${studentId}`)
       .then(response => {
         setAttendanceData(response.data.subjects);
         setTotalPercentage(response.data.totalAttendancePercentage); // <- new line
@@ -748,7 +748,7 @@ const TeacherLoginPage = () => {
         return;
       }
       
-      axios.post("https://college-cms-backend-jrmg.onrender.com/api/teacher/register", { 
+      axios.post("https://cms.sudeepdutta.com/api/teacher/register", { 
         teacherId, 
         password,
         name
@@ -768,7 +768,7 @@ const TeacherLoginPage = () => {
         return;
       }
       
-      axios.post("https://college-cms-backend-jrmg.onrender.com/api/teacher/login", { teacherId, password })
+      axios.post("https://cms.sudeepdutta.com/api/teacher/login", { teacherId, password })
         .then(response => {
           localStorage.setItem("teacherToken", response.data.token);
           localStorage.setItem("teacherId", response.data.teacherId);
@@ -865,7 +865,7 @@ const TeacherDashboard = () => {
       return;
     }
 
-    axios.get(`https://college-cms-backend-jrmg.onrender.com/api/teacher/timetable/${teacherId}`)
+    axios.get(`https://cms.sudeepdutta.com/api/teacher/timetable/${teacherId}`)
       .then(response => {
         setOddTimetable(response.data.odd || {});
         setEvenTimetable(response.data.even || {});
@@ -974,7 +974,7 @@ const DisplayAssignmentsPage = () => {
   // Fetch schools
   useEffect(() => {
     axios
-      .get("https://college-cms-backend-jrmg.onrender.com/api/schools")
+      .get("https://cms.sudeepdutta.com/api/schools")
       .then((response) => setSchools(response.data))
       .catch((error) => console.error("Error fetching schools:", error));
   }, []);
@@ -983,7 +983,7 @@ const DisplayAssignmentsPage = () => {
   useEffect(() => {
     if (school) {
       axios
-        .get(`https://college-cms-backend-jrmg.onrender.com/api/departments/${school}`)
+        .get(`https://cms.sudeepdutta.com/api/departments/${school}`)
         .then((response) => setDepartments(response.data))
         .catch((error) => console.error("Error fetching departments:", error));
     }
@@ -993,7 +993,7 @@ const DisplayAssignmentsPage = () => {
   useEffect(() => {
     if (department) {
       axios
-        .get(`https://college-cms-backend-jrmg.onrender.com/api/programs/${department}`)
+        .get(`https://cms.sudeepdutta.com/api/programs/${department}`)
         .then((response) => setPrograms(response.data))
         .catch((error) => console.error("Error fetching programs:", error));
     }
@@ -1004,7 +1004,7 @@ const DisplayAssignmentsPage = () => {
     if (program) {
       axios
         .get(
-          `https://college-cms-backend-jrmg.onrender.com/api/semesters/${program}?session=${session}`
+          `https://cms.sudeepdutta.com/api/semesters/${program}?session=${session}`
         )
         .then((response) => setSemesters(response.data))
         .catch((error) => console.error("Error fetching semesters:", error));
@@ -1015,7 +1015,7 @@ const DisplayAssignmentsPage = () => {
   useEffect(() => {
     if (semester) {
       axios
-        .get(`https://college-cms-backend-jrmg.onrender.com/api/subjects/${semester}`)
+        .get(`https://cms.sudeepdutta.com/api/subjects/${semester}`)
         .then((response) => setSubjects(response.data))
         .catch((error) => console.error("Error fetching subjects:", error));
     }
@@ -1025,7 +1025,7 @@ const DisplayAssignmentsPage = () => {
   useEffect(() => {
     if (subject) {
       axios
-        .get(`https://college-cms-backend-jrmg.onrender.com/api/assignments/${subject}`)
+        .get(`https://cms.sudeepdutta.com/api/assignments/${subject}`)
         .then((response) => setAssignments(response.data))
         .catch((error) => console.error("Error fetching assignments:", error));
     }
@@ -1036,7 +1036,7 @@ const DisplayAssignmentsPage = () => {
     if (selectedAssignment) {
       axios
         .get(
-          `https://college-cms-backend-jrmg.onrender.com/api/assignment-submissions/${selectedAssignment}`
+          `https://cms.sudeepdutta.com/api/assignment-submissions/${selectedAssignment}`
         )
         .then((response) => setSubmissions(response.data))
         .catch((error) => console.error("Error fetching submissions:", error));
@@ -1136,7 +1136,7 @@ const DisplayAssignmentsPage = () => {
                     </td>
                     <td>
                       <a
-                        href={`https://college-cms-backend-jrmg.onrender.com/uploads/${submission.file_path}`}
+                        href={`https://cms.sudeepdutta.com/uploads/${submission.file_path}`}
                         target="_blank"
                         rel="noreferrer"
                       >
@@ -1180,7 +1180,7 @@ const AddStudentPage = () => {
   // Fetch schools
   useEffect(() => {
     axios
-      .get("https://college-cms-backend-jrmg.onrender.com/api/schools")
+      .get("https://cms.sudeepdutta.com/api/schools")
       .then((response) => setSchools(response.data))
       .catch((error) => console.error("Error fetching schools:", error));
   }, []);
@@ -1189,7 +1189,7 @@ const AddStudentPage = () => {
   useEffect(() => {
     if (school) {
       axios
-        .get(`https://college-cms-backend-jrmg.onrender.com/api/departments/${school}`)
+        .get(`https://cms.sudeepdutta.com/api/departments/${school}`)
         .then((response) => setDepartments(response.data))
         .catch((error) => console.error("Error fetching departments:", error));
     }
@@ -1199,7 +1199,7 @@ const AddStudentPage = () => {
   useEffect(() => {
     if (department) {
       axios
-        .get(`https://college-cms-backend-jrmg.onrender.com/api/programs/${department}`)
+        .get(`https://cms.sudeepdutta.com/api/programs/${department}`)
         .then((response) => setPrograms(response.data))
         .catch((error) => console.error("Error fetching programs:", error));
     }
@@ -1210,7 +1210,7 @@ const AddStudentPage = () => {
     if (program) {
       axios
         .get(
-          `https://college-cms-backend-jrmg.onrender.com/api/semesters/${program}?session=${session}`
+          `https://cms.sudeepdutta.com/api/semesters/${program}?session=${session}`
         )
         .then((response) => setSemesters(response.data))
         .catch((error) => console.error("Error fetching semesters:", error));
@@ -1231,7 +1231,7 @@ const AddStudentPage = () => {
     };
 
     axios
-      .post("https://college-cms-backend-jrmg.onrender.com/api/students", studentData)
+      .post("https://cms.sudeepdutta.com/api/students", studentData)
       .then((response) => {
         alert("Student added successfully!");
         // Reset form
@@ -1329,7 +1329,7 @@ const ShowStudentAttendance = () => {
   const studentId = localStorage.getItem("studentId");
 
   useEffect(() => {
-      axios.get(`https://college-cms-backend-jrmg.onrender.com/api/student/attendance/${studentId}`)
+      axios.get(`https://cms.sudeepdutta.com/api/student/attendance/${studentId}`)
           .then(response => {
               setAttendanceData(response.data.subjects);
               setTotalAttendance(response.data.totalAttendancePercentage);
@@ -1380,26 +1380,26 @@ const ShowAdminAttendance = () => {
   const [threshold, setThreshold] = useState("");
 
   useEffect(() => {
-    axios.get("https://college-cms-backend-jrmg.onrender.com/api/schools").then((res) => setSchools(res.data));
+    axios.get("https://cms.sudeepdutta.com/api/schools").then((res) => setSchools(res.data));
   }, []);
 
   useEffect(() => {
     if (selectedSchool) {
-      axios.get(`https://college-cms-backend-jrmg.onrender.com/api/departments/${selectedSchool}`)
+      axios.get(`https://cms.sudeepdutta.com/api/departments/${selectedSchool}`)
         .then((res) => setDepartments(res.data));
     }
   }, [selectedSchool]);
 
   useEffect(() => {
     if (selectedDepartment) {
-      axios.get(`https://college-cms-backend-jrmg.onrender.com/api/programs/${selectedDepartment}`)
+      axios.get(`https://cms.sudeepdutta.com/api/programs/${selectedDepartment}`)
         .then((res) => setPrograms(res.data));
     }
   }, [selectedDepartment]);
 
   useEffect(() => {
     if (selectedProgram) {
-      axios.get(`https://college-cms-backend-jrmg.onrender.com/api/semesters/${selectedProgram}`)
+      axios.get(`https://cms.sudeepdutta.com/api/semesters/${selectedProgram}`)
         .then((res) => setSemesters(res.data));
     }
   }, [selectedProgram]);
@@ -1410,7 +1410,7 @@ const ShowAdminAttendance = () => {
       return;
     }
 
-    axios.get("https://college-cms-backend-jrmg.onrender.com/api/admin/attendance", {
+    axios.get("https://cms.sudeepdutta.com/api/admin/attendance", {
       params: {
         schoolId: selectedSchool,
         departmentId: selectedDepartment,
@@ -1581,7 +1581,7 @@ const ShowAttendancePage = () => {
   // Fetch schools
   useEffect(() => {
     axios
-      .get("https://college-cms-backend-jrmg.onrender.com/api/schools")
+      .get("https://cms.sudeepdutta.com/api/schools")
       .then((response) => setSchools(response.data))
       .catch((error) => console.error("Error fetching schools:", error));
   }, []);
@@ -1590,7 +1590,7 @@ const ShowAttendancePage = () => {
   useEffect(() => {
     if (school) {
       axios
-        .get(`https://college-cms-backend-jrmg.onrender.com/api/departments/${school}`)
+        .get(`https://cms.sudeepdutta.com/api/departments/${school}`)
         .then((response) => setDepartments(response.data))
         .catch((error) => console.error("Error fetching departments:", error));
     }
@@ -1600,7 +1600,7 @@ const ShowAttendancePage = () => {
   useEffect(() => {
     if (department) {
       axios
-        .get(`https://college-cms-backend-jrmg.onrender.com/api/programs/${department}`)
+        .get(`https://cms.sudeepdutta.com/api/programs/${department}`)
         .then((response) => setPrograms(response.data))
         .catch((error) => console.error("Error fetching programs:", error));
     }
@@ -1611,7 +1611,7 @@ const ShowAttendancePage = () => {
     if (program) {
       axios
         .get(
-          `https://college-cms-backend-jrmg.onrender.com/api/semesters/${program}?session=${session}`
+          `https://cms.sudeepdutta.com/api/semesters/${program}?session=${session}`
         )
         .then((response) => setSemesters(response.data))
         .catch((error) => console.error("Error fetching semesters:", error));
@@ -1622,7 +1622,7 @@ const ShowAttendancePage = () => {
   useEffect(() => {
     if (semester) {
       axios
-        .get(`https://college-cms-backend-jrmg.onrender.com/api/subjects/${semester}`)
+        .get(`https://cms.sudeepdutta.com/api/subjects/${semester}`)
         .then((response) => setSubjects(response.data))
         .catch((error) => console.error("Error fetching subjects:", error));
     }
@@ -1635,7 +1635,7 @@ const ShowAttendancePage = () => {
     }
 
     axios
-      .get(`https://college-cms-backend-jrmg.onrender.com/api/attendance/${subject}/${date}`)
+      .get(`https://cms.sudeepdutta.com/api/attendance/${subject}/${date}`)
       .then((response) => {
         setAttendanceRecords(response.data);
       })
@@ -1758,7 +1758,7 @@ const GeneratedTimetables = () => {
   const [timetables, setTimetables] = useState([]);
 
   useEffect(() => {
-    fetch('https://college-cms-backend-jrmg.onrender.com/api/generated-timetables')
+    fetch('https://cms.sudeepdutta.com/api/generated-timetables')
       .then(res => res.json())
       .then(data => setTimetables(data))
       .catch(err => console.error(err));
@@ -1766,7 +1766,7 @@ const GeneratedTimetables = () => {
 
   const handleDelete = (id) => {
     if (window.confirm("Are you sure you want to delete this timetable?")) {
-      fetch(`https://college-cms-backend-jrmg.onrender.com/api/timetable/${id}`, {
+      fetch(`https://cms.sudeepdutta.com/api/timetable/${id}`, {
         method: 'DELETE'
       })
         .then(res => res.json())
@@ -1836,7 +1836,7 @@ const LibrarySearchPage = () => {
   const [books, setBooks] = useState([]);
 
   useEffect(() => {
-    axios.get(`https://college-cms-backend-jrmg.onrender.com/api/library/books?q=${query}`)
+    axios.get(`https://cms.sudeepdutta.com/api/library/books?q=${query}`)
       .then(res => setBooks(res.data))
       .catch(err => console.error("Error fetching books:", err));
   }, [query]);
@@ -1889,40 +1889,40 @@ const SyllabusViewer = () => {
   const [syllabusLink, setSyllabusLink] = useState('');
 
   useEffect(() => {
-    axios.get('https://college-cms-backend-jrmg.onrender.com/api/schools')
+    axios.get('https://cms.sudeepdutta.com/api/schools')
       .then(res => setSchools(res.data))
       .catch(err => console.error("Error fetching schools", err));
   }, []);
 
   useEffect(() => {
     if (schoolId) {
-      axios.get(`https://college-cms-backend-jrmg.onrender.com/api/departments/${schoolId}`)
+      axios.get(`https://cms.sudeepdutta.com/api/departments/${schoolId}`)
         .then(res => setDepartments(res.data));
     }
   }, [schoolId]);
 
   useEffect(() => {
     if (departmentId) {
-      axios.get(`https://college-cms-backend-jrmg.onrender.com/api/programs/${departmentId}`)
+      axios.get(`https://cms.sudeepdutta.com/api/programs/${departmentId}`)
         .then(res => setPrograms(res.data));
     }
   }, [departmentId]);
 
   useEffect(() => {
     if (programId) {
-      axios.get(`https://college-cms-backend-jrmg.onrender.com/api/semesters/${programId}`)
+      axios.get(`https://cms.sudeepdutta.com/api/semesters/${programId}`)
         .then(res => setSemesters(res.data));
     }
   }, [programId]);
 
   const fetchSyllabus = () => {
-    axios.get(`https://college-cms-backend-jrmg.onrender.com/api/syllabus`, {
+    axios.get(`https://cms.sudeepdutta.com/api/syllabus`, {
       params: { schoolId, departmentId, programId, semesterId }
     })
       .then(res => {
         const content = res.data.content;
         if (content) {
-          setSyllabusLink(`https://college-cms-backend-jrmg.onrender.com/${content}`);
+          setSyllabusLink(`https://cms.sudeepdutta.com/${content}`);
         } else {
           setSyllabusLink('');
         }
@@ -2004,7 +2004,7 @@ const AttendancePage = () => {
   // Fetch schools
   useEffect(() => {
     axios
-      .get("https://college-cms-backend-jrmg.onrender.com/api/schools")
+      .get("https://cms.sudeepdutta.com/api/schools")
       .then((response) => setSchools(response.data))
       .catch((error) => console.error("Error fetching schools:", error));
   }, []);
@@ -2013,7 +2013,7 @@ const AttendancePage = () => {
   useEffect(() => {
     if (school) {
       axios
-        .get(`https://college-cms-backend-jrmg.onrender.com/api/departments/${school}`)
+        .get(`https://cms.sudeepdutta.com/api/departments/${school}`)
         .then((response) => setDepartments(response.data))
         .catch((error) => console.error("Error fetching departments:", error));
     }
@@ -2023,7 +2023,7 @@ const AttendancePage = () => {
   useEffect(() => {
     if (department) {
       axios
-        .get(`https://college-cms-backend-jrmg.onrender.com/api/programs/${department}`)
+        .get(`https://cms.sudeepdutta.com/api/programs/${department}`)
         .then((response) => setPrograms(response.data))
         .catch((error) => console.error("Error fetching programs:", error));
     }
@@ -2034,7 +2034,7 @@ const AttendancePage = () => {
     if (program) {
       axios
         .get(
-          `https://college-cms-backend-jrmg.onrender.com/api/semesters/${program}?session=${session}`
+          `https://cms.sudeepdutta.com/api/semesters/${program}?session=${session}`
         )
         .then((response) => setSemesters(response.data))
         .catch((error) => console.error("Error fetching semesters:", error));
@@ -2045,7 +2045,7 @@ const AttendancePage = () => {
   useEffect(() => {
     if (semester) {
       axios
-        .get(`https://college-cms-backend-jrmg.onrender.com/api/subjects/${semester}`)
+        .get(`https://cms.sudeepdutta.com/api/subjects/${semester}`)
         .then((response) => setSubjects(response.data))
         .catch((error) => console.error("Error fetching subjects:", error));
     }
@@ -2055,7 +2055,7 @@ const AttendancePage = () => {
   useEffect(() => {
     if (program && semester) {
       axios
-        .get(`https://college-cms-backend-jrmg.onrender.com/api/students`, {
+        .get(`https://cms.sudeepdutta.com/api/students`, {
           params: { programId: program, semesterId: semester },
         })
         .then((response) => {
@@ -2088,7 +2088,7 @@ const AttendancePage = () => {
       }));
 
     axios
-      .post("https://college-cms-backend-jrmg.onrender.com/api/attendance", {
+      .post("https://cms.sudeepdutta.com/api/attendance", {
         semesterId: semester,
         subjectId: subject,
         attendanceRecords,
@@ -2276,7 +2276,7 @@ const Step1 = ({
   // Fetch schools on component load
   useEffect(() => {
     axios
-      .get("https://college-cms-backend-jrmg.onrender.com/api/schools")
+      .get("https://cms.sudeepdutta.com/api/schools")
       .then((response) => {
         setSchools(response.data);
       })
@@ -2289,7 +2289,7 @@ const Step1 = ({
   useEffect(() => {
     if (school) {
       axios
-        .get(`https://college-cms-backend-jrmg.onrender.com/api/departments/${school}`)
+        .get(`https://cms.sudeepdutta.com/api/departments/${school}`)
         .then((response) => {
           setDepartments(response.data);
         })
@@ -2303,7 +2303,7 @@ const Step1 = ({
   useEffect(() => {
     if (department) {
       axios
-        .get(`https://college-cms-backend-jrmg.onrender.com/api/programs/${department}`)
+        .get(`https://cms.sudeepdutta.com/api/programs/${department}`)
         .then((response) => {
           setPrograms(response.data);
         })
@@ -2317,7 +2317,7 @@ const Step1 = ({
   useEffect(() => {
     if (program && session) {
       axios
-        .get(`https://college-cms-backend-jrmg.onrender.com/api/semesters/${program}`, {
+        .get(`https://cms.sudeepdutta.com/api/semesters/${program}`, {
           params: { session },
         })
         .then((response) => {
@@ -2433,7 +2433,7 @@ const Step2 = ({
   useEffect(() => {
     if (semester) {
       axios
-        .get(`https://college-cms-backend-jrmg.onrender.com/api/subjects/${semester}`)
+        .get(`https://cms.sudeepdutta.com/api/subjects/${semester}`)
         .then((response) => {
           setFetchedSubjects(response.data);
         })
@@ -2468,7 +2468,7 @@ const Step2 = ({
     }
 
     axios
-      .post(`https://college-cms-backend-jrmg.onrender.com/api/subjects`, {
+      .post(`https://cms.sudeepdutta.com/api/subjects`, {
         semesterId: semester,
         name: newSubject,
       })
@@ -2486,7 +2486,7 @@ const Step2 = ({
   const handleDeleteSubject = (subjectId) => {
     if (window.confirm("Are you sure you want to delete this subject?")) {
       axios
-        .delete(`https://college-cms-backend-jrmg.onrender.com/api/subjects/${subjectId}`)
+        .delete(`https://cms.sudeepdutta.com/api/subjects/${subjectId}`)
         .then(() => {
           setFetchedSubjects(
             fetchedSubjects.filter((sub) => sub.id !== subjectId)
@@ -2523,7 +2523,7 @@ const Step2 = ({
     }
 
     axios
-      .post(`https://college-cms-backend-jrmg.onrender.com/api/teachers`, {
+      .post(`https://cms.sudeepdutta.com/api/teachers`, {
         name: newTeacher,
       })
       .then((response) => {
@@ -2542,14 +2542,14 @@ const Step2 = ({
       window.confirm(`Are you sure you want to delete teacher ${teacherName}?`)
     ) {
       axios
-        .get("https://college-cms-backend-jrmg.onrender.com/api/teachers")
+        .get("https://cms.sudeepdutta.com/api/teachers")
         .then((response) => {
           const teacherToDelete = response.data.find(
             (t) => t.name === teacherName
           );
           if (teacherToDelete) {
             return axios.delete(
-              `https://college-cms-backend-jrmg.onrender.com/api/teachers/${teacherToDelete.id}`
+              `https://cms.sudeepdutta.com/api/teachers/${teacherToDelete.id}`
             );
           }
           throw new Error("Teacher not found");
@@ -2743,7 +2743,7 @@ const TimetablePage = ({
   const checkForConflicts = async (timetable) => {
     try {
       const response = await axios.post(
-        "https://college-cms-backend-jrmg.onrender.com/api/check-conflicts",
+        "https://cms.sudeepdutta.com/api/check-conflicts",
         { timetable }
       );
       setConflicts(response.data.conflicts || []);
@@ -2832,7 +2832,7 @@ const TimetablePage = ({
     const semesterNumber = semester.replace(/\D/g, "");
     try {
       const response = await axios.post(
-        "https://college-cms-backend-jrmg.onrender.com/api/save-timetable",
+        "https://cms.sudeepdutta.com/api/save-timetable",
         {
           session,
           schoolId: school,
@@ -3017,30 +3017,30 @@ const AssignAssignmentPage = () => {
   const navigate = useNavigate();
 
   useEffect(() => {
-    axios.get("https://college-cms-backend-jrmg.onrender.com/api/schools").then((res) => setSchools(res.data));
+    axios.get("https://cms.sudeepdutta.com/api/schools").then((res) => setSchools(res.data));
   }, []);
 
   useEffect(() => {
     if (school) {
-      axios.get(`https://college-cms-backend-jrmg.onrender.com/api/departments/${school}`).then((res) => setDepartments(res.data));
+      axios.get(`https://cms.sudeepdutta.com/api/departments/${school}`).then((res) => setDepartments(res.data));
     }
   }, [school]);
 
   useEffect(() => {
     if (department) {
-      axios.get(`https://college-cms-backend-jrmg.onrender.com/api/programs/${department}`).then((res) => setPrograms(res.data));
+      axios.get(`https://cms.sudeepdutta.com/api/programs/${department}`).then((res) => setPrograms(res.data));
     }
   }, [department]);
 
   useEffect(() => {
     if (program) {
-      axios.get(`https://college-cms-backend-jrmg.onrender.com/api/semesters/${program}`).then((res) => setSemesters(res.data));
+      axios.get(`https://cms.sudeepdutta.com/api/semesters/${program}`).then((res) => setSemesters(res.data));
     }
   }, [program]);
 
   useEffect(() => {
     if (semester) {
-      axios.get(`https://college-cms-backend-jrmg.onrender.com/api/subjects/${semester}`).then((res) => setSubjects(res.data));
+      axios.get(`https://cms.sudeepdutta.com/api/subjects/${semester}`).then((res) => setSubjects(res.data));
     }
   }, [semester]);
 
@@ -3059,7 +3059,7 @@ const AssignAssignmentPage = () => {
     formData.append("pdf", pdfFile);
 
     axios
-      .post("https://college-cms-backend-jrmg.onrender.com/api/assignments/upload", formData)
+      .post("https://cms.sudeepdutta.com/api/assignments/upload", formData)
       .then(() => {
         alert("Assignment created!");
         setAssignmentTitle("");
@@ -3151,14 +3151,14 @@ const StudentAssignmentPage = () => {
   const navigate = useNavigate();
 
   useEffect(() => {
-    axios.get("https://college-cms-backend-jrmg.onrender.com/api/schools")
+    axios.get("https://cms.sudeepdutta.com/api/schools")
       .then((response) => setSchools(response.data))
       .catch((error) => console.error("Error fetching schools:", error));
   }, []);
 
   useEffect(() => {
     if (school) {
-      axios.get(`https://college-cms-backend-jrmg.onrender.com/api/departments/${school}`)
+      axios.get(`https://cms.sudeepdutta.com/api/departments/${school}`)
         .then((response) => setDepartments(response.data))
         .catch((error) => console.error("Error fetching departments:", error));
     }
@@ -3166,7 +3166,7 @@ const StudentAssignmentPage = () => {
 
   useEffect(() => {
     if (department) {
-      axios.get(`https://college-cms-backend-jrmg.onrender.com/api/programs/${department}`)
+      axios.get(`https://cms.sudeepdutta.com/api/programs/${department}`)
         .then((response) => setPrograms(response.data))
         .catch((error) => console.error("Error fetching programs:", error));
     }
@@ -3174,7 +3174,7 @@ const StudentAssignmentPage = () => {
 
   useEffect(() => {
     if (program) {
-      axios.get(`https://college-cms-backend-jrmg.onrender.com/api/semesters/${program}?session=${session}`)
+      axios.get(`https://cms.sudeepdutta.com/api/semesters/${program}?session=${session}`)
         .then((response) => setSemesters(response.data))
         .catch((error) => console.error("Error fetching semesters:", error));
     }
@@ -3182,7 +3182,7 @@ const StudentAssignmentPage = () => {
 
   useEffect(() => {
     if (semester) {
-      axios.get(`https://college-cms-backend-jrmg.onrender.com/api/subjects/${semester}`)
+      axios.get(`https://cms.sudeepdutta.com/api/subjects/${semester}`)
         .then((response) => setSubjects(response.data))
         .catch((error) => console.error("Error fetching subjects:", error));
     }
@@ -3190,7 +3190,7 @@ const StudentAssignmentPage = () => {
 
   useEffect(() => {
     if (subject) {
-      axios.get(`https://college-cms-backend-jrmg.onrender.com/api/assignments/${subject}`)
+      axios.get(`https://cms.sudeepdutta.com/api/assignments/${subject}`)
         .then((response) => setAssignments(response.data))
         .catch((error) => console.error("Error fetching assignments:", error));
     }
@@ -3212,7 +3212,7 @@ const StudentAssignmentPage = () => {
     formData.append("registrationNumber", registrationNumber);
     formData.append("assignmentFile", assignmentFile);
 
-    axios.post("https://college-cms-backend-jrmg.onrender.com/api/student-assignments", formData, {
+    axios.post("https://cms.sudeepdutta.com/api/student-assignments", formData, {
       headers: { "Content-Type": "multipart/form-data" },
     })
       .then(() => {
@@ -3299,7 +3299,7 @@ const StudentAssignmentPage = () => {
   return selected?.pdf_path ? (
     <div style={{ marginBottom: "10px" }}>
       <a
-        href={`https://college-cms-backend-jrmg.onrender.com/uploads/${selected.pdf_path}`}
+        href={`https://cms.sudeepdutta.com/uploads/${selected.pdf_path}`}
         target="_blank"
         rel="noopener noreferrer"
         download
@@ -3342,14 +3342,14 @@ const TotalClassesPage = () => {
   const [selectedSemester, setSelectedSemester] = useState("");
 
   useEffect(() => {
-    axios.get("https://college-cms-backend-jrmg.onrender.com/api/schools")
+    axios.get("https://cms.sudeepdutta.com/api/schools")
       .then(res => setSchools(res.data))
       .catch(err => console.error("Error fetching schools:", err));
   }, []);
 
   useEffect(() => {
     if (selectedSchool) {
-      axios.get(`https://college-cms-backend-jrmg.onrender.com/api/departments/${selectedSchool}`)
+      axios.get(`https://cms.sudeepdutta.com/api/departments/${selectedSchool}`)
         .then(res => setDepartments(res.data))
         .catch(err => console.error("Error fetching departments:", err));
     } else {
@@ -3365,7 +3365,7 @@ const TotalClassesPage = () => {
 
   useEffect(() => {
     if (selectedDepartment) {
-      axios.get(`https://college-cms-backend-jrmg.onrender.com/api/programs/${selectedDepartment}`)
+      axios.get(`https://cms.sudeepdutta.com/api/programs/${selectedDepartment}`)
         .then(res => setPrograms(res.data))
         .catch(err => console.error("Error fetching programs:", err));
     } else {
@@ -3379,7 +3379,7 @@ const TotalClassesPage = () => {
 
   useEffect(() => {
     if (selectedProgram) {
-      axios.get(`https://college-cms-backend-jrmg.onrender.com/api/semesters/${selectedProgram}`)
+      axios.get(`https://cms.sudeepdutta.com/api/semesters/${selectedProgram}`)
         .then(res => setSemesters(res.data))
         .catch(err => console.error("Error fetching semesters:", err));
     } else {
@@ -3394,7 +3394,7 @@ const TotalClassesPage = () => {
       alert("Please select a semester first!");
       return;
     }
-    axios.get(`https://college-cms-backend-jrmg.onrender.com/api/subjects/${selectedSemester}`)
+    axios.get(`https://cms.sudeepdutta.com/api/subjects/${selectedSemester}`)
       .then(res => setSubjects(res.data))
       .catch(err => console.error("Error fetching subjects:", err));
   };
@@ -3407,7 +3407,7 @@ const TotalClassesPage = () => {
   };
 
   const handleSave = (id, totalClasses) => {
-  axios.put(`https://college-cms-backend-jrmg.onrender.com/api/subjects/${id}`, { total_classes: totalClasses })
+  axios.put(`https://cms.sudeepdutta.com/api/subjects/${id}`, { total_classes: totalClasses })
     .then(response => {
       Swal.fire('Success!', 'Total classes updated successfully', 'success');
     })
@@ -3509,7 +3509,7 @@ const App = () => {
 
   useEffect(() => {
     axios
-      .get("https://college-cms-backend-jrmg.onrender.com/api/teachers")
+      .get("https://cms.sudeepdutta.com/api/teachers")
       .then((response) => {
         // Assuming the response contains an array of teacher objects with a 'name' property
         const teacherNames = response.data.map((teacher) => teacher.name);
